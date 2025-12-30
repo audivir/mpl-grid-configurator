@@ -23,7 +23,7 @@ def connect(ax: Axes, gid: str) -> None:
     p.set_gid(gid)
 
 
-def _extract_loc(e: ET.Element) -> tuple[float, float, float, float]:
+def _extract_loc(e: ET._Element) -> tuple[float, float, float, float]:
     path = e.attrib["d"]
     spath = path.split()
     x: list[float] = []
@@ -108,7 +108,7 @@ def insert(
         offset_y = (dy - rh * scale_y) / 2 if center_v else 0
 
         # Create a <g> wrapper for transform
-        g = ET.SubElement(e, f"{{{nsmap[None]}}}g")
+        g = ET.SubElement(e, f"{{{nsmap[None]}}}g")  # type: ignore[misc]
         g.attrib["transform"] = (
             f"translate({x + offset_x},{y + offset_y}) scale({scale_x},{scale_y})"
         )

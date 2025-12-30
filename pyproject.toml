@@ -13,10 +13,12 @@ requires-python = ">=3.10"
 dependencies = [
     "doctyper",
     "fastapi",
+    "lxml",
     "matplotlib",
     "pydantic",
     "servestatic",
     "uvicorn",
+    "typing_extensions",
 ]
 
 [project.urls]
@@ -40,6 +42,7 @@ ignore = [
     "D203",
     "D212",
     "EM101",
+    "EM102",
     "FBT001",
     "FBT002",
     "PLC0415",

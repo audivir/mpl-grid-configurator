@@ -7,27 +7,29 @@ import io
 import logging
 from collections.abc import Callable, MutableMapping
 from pathlib import Path
-from typing import Any, ForwardRef, Literal, TypeAlias
+from typing import Any, ForwardRef, Literal, TypeAlias, TypeVar, get_origin
 
 import matplotlib.pyplot as plt
 from doctyper._typing import eval_type
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure, SubFigure
-from typing_extensions import TypedDict
+from typing_extensions import TypedDict, TypeIs
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 logger = logging.getLogger(__name__)
 
 PARENT = Path(__file__).parent
 FRONTEND_DIR = PARENT / "frontend"
 
-DRAWING_FUNC: TypeAlias = (
-    Callable[[Figure | SubFigure], Axes]
-    | Callable[[Figure | SubFigure], str]
-    | Callable[[Figure | SubFigure], tuple[str, Axes]]
-)
-DRAWING_FUNCS: dict[str, DRAWING_FUNC] = {}
+T = TypeVar("T")
+
+AxesDrawFunc: TypeAlias = Callable[[Figure | SubFigure], Axes]
+TupleDrawFunc: TypeAlias = Callable[[Figure | SubFigure], tuple[str, Axes]]
+StrDrawFunc: TypeAlias = Callable[[], str]
+DrawFunc: TypeAlias = AxesDrawFunc | TupleDrawFunc | StrDrawFunc
+DrawFuncT = TypeVar("DrawFuncT", bound=DrawFunc)
+DRAW_FUNCS: dict[str, DrawFunc] = {}
 
 
 class MissingBinaryError(RuntimeError):
@@ -37,11 +39,9 @@ class MissingBinaryError(RuntimeError):
 class SignatureError(ValueError):
     """Drawing function has an invalid signature."""
 
-    def __init__(self, got: Any, accepted: Any) -> None:
+    def __init__(self, func: Callable) -> None:
         """Initialize the exception."""
-        super().__init__(
-            f"Function must accept a single parameter of type {accepted}, got: {got}",
-        )
+        super().__init__(f"Drawing function {func.__name__} has an invalid signature.")
 
 
 class LayoutNode(TypedDict):
@@ -94,18 +94,16 @@ def render_recursive(
 
     if isinstance(layout, str):
         func_name: str = layout
-        func = DRAWING_FUNCS.get(func_name)
+        func = DRAW_FUNCS.get(func_name)
         if func:
-            return_type = get_return_type(func)
-            if return_type == "axes":
+            if is_tuple_draw_func(func):
+                svg, ax = func(container)
+            elif is_str_draw_func(func):
+                svg = func()
+                ax = draw_empty(container)
+            else:  # it's axes draw func
                 func(container)
                 return
-
-            if return_type == "tuple":
-                svg, ax = func(container)
-            else:
-                svg = func(container)
-                ax = draw_empty(container)
 
             connect(ax, func_name)
             svg_mapping[func_name] = svg
@@ -151,48 +149,74 @@ def _eval_annotation(annotation: type | str) -> type:
     return annotation
 
 
-def verify_single_fig_param(func: Callable) -> Callable[[Figure | SubFigure], Any]:
-    """Verify that a function accepts a single parameter of type Figure | SubFigure."""
-    sig = inspect.signature(func)
-    if len(sig.parameters) != 1:
-        raise SignatureError(sig.parameters, Figure | SubFigure)
-    annotation = next(iter(sig.parameters.values())).annotation
-    param_type = _eval_annotation(annotation)
-    if param_type != Figure | SubFigure:
-        raise SignatureError(param_type, Figure | SubFigure)
-    return func
-
-
-def get_return_type(func: Callable[[Figure | SubFigure], Any]) -> Literal["str", "axes", "tuple"]:
+def get_return_type(func: Callable[..., T]) -> type[T]:
     """Get the return type of a function."""
     sig = inspect.signature(func)
-    return_type = _eval_annotation(sig.return_annotation)
-    if return_type == str:  # noqa: E721
-        return "str"
-    if return_type == Axes:
-        return "axes"
-    if return_type == tuple[str, Axes]:
-        return "tuple"
-    raise SignatureError(return_type, (str, Axes, tuple[str, Axes]))
+    return _eval_annotation(sig.return_annotation)
 
 
-def register(func: Callable) -> None:
-    """Register a drawing function."""
-    if func in DRAWING_FUNCS.values():
+def get_n_params(func: Callable[..., Any]) -> int:
+    """Get the number of parameters of a function."""
+    sig = inspect.signature(func)
+    return len(sig.parameters)
+
+
+def is_tuple_draw_func(func: DrawFuncT) -> TypeIs[TupleDrawFunc]:  # type: ignore[narrowed-type-not-subtype]
+    """Check if a function returns a tuple."""
+    return get_origin(get_return_type(func)) is tuple
+
+
+def is_str_draw_func(func: DrawFuncT) -> TypeIs[StrDrawFunc]:  # type: ignore[narrowed-type-not-subtype]
+    """Check if a function returns a string."""
+    return get_return_type(func) is str
+
+
+def register(func: DrawFuncT) -> DrawFuncT:
+    """
+    Register a drawing function. Can be used as a decorator.
+
+    A drawing function can be:
+    * Variant 1: a function that takes a Matplotlib figure, draws on it and returns any of its axes.
+    * Variant 2: a function that takes a Matplotlib figure,
+        draws on it, returns its SVG as a string and one of its axes.
+    * Variant 3: a function that takes no parameters and returns its SVG as a string.
+
+    If the function takes no parameters, Variant 3 is assumed, if the function returns a tuple,
+    Variant 2 is assumed, otherwise Variant 1 is assumed.
+
+    ```python
+    from mpl_grid_configurator import register
+    from matplotlib.figure import Figure, SubFigure
+    from matplotlib.axes import Axes
+
+    @register
+    def draw_func(container: Figure | SubFigure) -> Axes:
+        ...
+    ```
+
+    Args:
+        func: The drawing function to register.
+
+    Returns:
+        The registered function.
+
+    Raises:
+        SignatureError: If the function does not have the correct signature.
+
+    """
+    if func in DRAW_FUNCS.values():
         logger.warning("Function %s is already registered.", func.__name__)
-        return
-
-    # verify signature
-    func = verify_single_fig_param(func)
-    get_return_type(func)
+        return func
 
     # register with unique name
     name = func.__name__
     count = 1
-    while name in DRAWING_FUNCS:
+    while name in DRAW_FUNCS:
         name = f"{func.__name__}_{count}"
         count += 1
-    DRAWING_FUNCS[name] = func
+    DRAW_FUNCS[name] = func
+
+    return func
 
 
 def draw_empty(container: Figure | SubFigure) -> Axes:
@@ -204,7 +228,7 @@ def draw_empty(container: Figure | SubFigure) -> Axes:
 
 async def get_functions() -> list[str]:
     """Get a list of available functions."""
-    return list(DRAWING_FUNCS.keys())
+    return list(DRAW_FUNCS.keys())
 
 
 async def render_svg(layout_data: LayoutData) -> SVGResponse:
@@ -233,7 +257,7 @@ def start_app(port: int = 8000) -> None:
     import uvicorn
     from fastapi import FastAPI
     from fastapi.middleware.cors import CORSMiddleware
-    from servestatic import ServeStaticASGI
+    from servestatic import ServeStaticASGI  # type: ignore[import-untyped]
 
     backend_app = FastAPI()
 
@@ -248,7 +272,7 @@ def start_app(port: int = 8000) -> None:
     backend_app.get("/functions")(get_functions)
     backend_app.post("/render")(render_svg)
 
-    if draw_empty not in DRAWING_FUNCS.values():
+    if draw_empty not in DRAW_FUNCS.values():
         register(draw_empty)
 
     # start the backend in a thread

@@ -12,9 +12,8 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure, SubFigure
 
 
-def add_svg(container: Figure | SubFigure) -> str:
+def add_svg() -> str:
     """Add a svg logo."""
-    del container  # unused
     return (Path(__file__).parent / "example.svg").read_text()
 
 
