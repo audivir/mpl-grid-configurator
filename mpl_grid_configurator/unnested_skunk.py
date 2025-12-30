@@ -89,7 +89,7 @@ def insert(
 
         # Parse replacement SVG
         try:
-            rr = ET.fromstring(rv)
+            rr = ET.fromstring(rv.encode())
         except ET.ParseError as e:
             raise ValueError("Replacement SVG is not valid XML.") from e
 
