@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mpl-grid-configurator"
+description = "Configure matplotlib grid layouts with an interactive web interface."
+dynamic = ["version"]
+authors = [{ name = "Tim Hörmann", email = "pypi@audivir.de" }]
+license-files = ["LICENSE"]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "doctyper",
+    "fastapi",
+    "matplotlib",
+    "pydantic",
+    "servestatic",
+    "uvicorn",
+]
+
+[project.urls]
+Homepage = "https://github.com/audivir/mpl-grid-configurator"
+Repository = "https://github.com/audivir/mpl-grid-configurator"
+
+[tool.setuptools]
+dynamic = { version = { attr = "mpl_grid_configurator.__version__" } }
+
+[tool.setuptools.packages.find]
+include = ["mpl_grid_configurator*"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "ANN401",  # Dynamically typed expressions are disallowed
+    "COM812",
+    "D203",
+    "D212",
+    "EM101",
+    "PLC0415",
+    "TRY003",
+]

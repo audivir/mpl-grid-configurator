@@ -1,0 +1,7 @@
+include frontend/package-lock.json
+include frontend/package.json
+include frontend/tailwind.config.js
+include frontend/tsconfig.json
+recursive-include frontend/src *
+recursive-include frontend/public *
+recursive-include mpl_grid_configurator/frontend *
