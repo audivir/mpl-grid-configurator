@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -9,6 +10,12 @@ import numpy as np
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure, SubFigure
+
+
+def add_svg(container: Figure | SubFigure) -> str:
+    """Add a svg logo."""
+    del container  # unused
+    return (Path(__file__).parent / "example.svg").read_text()
 
 
 def draw_sine(container: Figure | SubFigure) -> Axes:
@@ -38,6 +45,7 @@ if __name__ == "__main__":
     from mpl_grid_configurator import register, start_app
 
     # Register the drawing functions
+    register(add_svg)
     register(draw_sine)
     register(draw_scatter)
 

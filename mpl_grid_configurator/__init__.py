@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 import io
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, MutableMapping
 from pathlib import Path
 from typing import Any, ForwardRef, Literal, TypeAlias
 
@@ -15,14 +15,18 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure, SubFigure
 from typing_extensions import TypedDict
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 logger = logging.getLogger(__name__)
 
 PARENT = Path(__file__).parent
 FRONTEND_DIR = PARENT / "frontend"
 
-DRAWING_FUNC: TypeAlias = Callable[[Figure | SubFigure], Axes]
+DRAWING_FUNC: TypeAlias = (
+    Callable[[Figure | SubFigure], Axes]
+    | Callable[[Figure | SubFigure], str]
+    | Callable[[Figure | SubFigure], tuple[str, Axes]]
+)
 DRAWING_FUNCS: dict[str, DRAWING_FUNC] = {}
 
 
@@ -83,12 +87,29 @@ def typed_subfigures(
 def render_recursive(
     container: Figure | SubFigure,
     layout: Layout,
+    svg_mapping: MutableMapping[str, str],
 ) -> None:
     """Render a node recursively."""
+    from mpl_grid_configurator.unnested_skunk import connect
+
     if isinstance(layout, str):
-        func = DRAWING_FUNCS.get(layout)
+        func_name: str = layout
+        func = DRAWING_FUNCS.get(func_name)
         if func:
-            func(container)
+            return_type = get_return_type(func)
+            if return_type == "axes":
+                func(container)
+                return
+
+            if return_type == "tuple":
+                svg, ax = func(container)
+            else:
+                svg = func(container)
+                ax = draw_empty(container)
+
+            connect(ax, func_name)
+            svg_mapping[func_name] = svg
+
     else:
         node: LayoutNode = layout
         left_up_subfig, right_down_subfig = typed_subfigures(
@@ -97,19 +118,30 @@ def render_recursive(
             node["ratios"],
         )
         left_up, right_down = node["children"]
-        render_recursive(left_up_subfig, left_up)
-        render_recursive(right_down_subfig, right_down)
+        render_recursive(left_up_subfig, left_up, svg_mapping)
+        render_recursive(right_down_subfig, right_down, svg_mapping)
 
 
-def render_layout(layout_data: LayoutData) -> Figure:
+def render_layout(layout_data: LayoutData) -> tuple[Figure, Callable[[str], str]]:
     """Render a layout."""
+    from mpl_grid_configurator.unnested_skunk import insert
+
     layout = layout_data["layout"]
     width, height = layout_data["figsize"]
 
     # Use layout="constrained" to ensure subplots respect the ratio boundaries
     fig = Figure(figsize=(width, height), layout="constrained")
-    render_recursive(fig, layout)
-    return fig
+
+    svg_mapping: dict[str, str] = {}
+    render_recursive(fig, layout, svg_mapping)
+
+    if not svg_mapping:
+        return fig, lambda svg: svg
+
+    def svg_callback(final_svg: str) -> str:
+        return insert(svg_mapping, final_svg)
+
+    return fig, svg_callback
 
 
 def _eval_annotation(annotation: type | str) -> type:
@@ -119,26 +151,40 @@ def _eval_annotation(annotation: type | str) -> type:
     return annotation
 
 
-def register(func: DRAWING_FUNC) -> None:
-    """Register a drawing function."""
-    # verify signature
+def verify_single_fig_param(func: Callable) -> Callable[[Figure | SubFigure], Any]:
+    """Verify that a function accepts a single parameter of type Figure | SubFigure."""
     sig = inspect.signature(func)
-
-    if len(sig.parameters) == 1:
-        annotation = next(iter(sig.parameters.values())).annotation
-        param_type = _eval_annotation(annotation)
-        if param_type != Figure | SubFigure:
-            raise SignatureError(param_type, Figure | SubFigure)
-    else:
+    if len(sig.parameters) != 1:
         raise SignatureError(sig.parameters, Figure | SubFigure)
-    # verify return type
-    return_type = _eval_annotation(sig.return_annotation)
-    if return_type != Axes:
-        raise SignatureError(return_type, Axes)
+    annotation = next(iter(sig.parameters.values())).annotation
+    param_type = _eval_annotation(annotation)
+    if param_type != Figure | SubFigure:
+        raise SignatureError(param_type, Figure | SubFigure)
+    return func
 
+
+def get_return_type(func: Callable[[Figure | SubFigure], Any]) -> Literal["str", "axes", "tuple"]:
+    """Get the return type of a function."""
+    sig = inspect.signature(func)
+    return_type = _eval_annotation(sig.return_annotation)
+    if return_type == str:  # noqa: E721
+        return "str"
+    if return_type == Axes:
+        return "axes"
+    if return_type == tuple[str, Axes]:
+        return "tuple"
+    raise SignatureError(return_type, (str, Axes, tuple[str, Axes]))
+
+
+def register(func: Callable) -> None:
+    """Register a drawing function."""
     if func in DRAWING_FUNCS.values():
         logger.warning("Function %s is already registered.", func.__name__)
         return
+
+    # verify signature
+    func = verify_single_fig_param(func)
+    get_return_type(func)
 
     # register with unique name
     name = func.__name__
@@ -166,19 +212,23 @@ async def render_svg(layout_data: LayoutData) -> SVGResponse:
     from fastapi import HTTPException
 
     try:
-        fig = render_layout(layout_data)
+        fig, svg_callback = render_layout(layout_data)
         buf = io.BytesIO()
         fig.savefig(buf, format="svg")
         plt.close(fig)
-        return {"svg": buf.getvalue().decode("utf-8")}
+        final_svg = buf.getvalue().decode("utf-8")
+        fixed_svg = svg_callback(final_svg)
     except Exception as e:
+        logger.exception("Error during rendering")
         raise HTTPException(status_code=400, detail=str(e)) from e
+    else:
+        return {"svg": fixed_svg}
 
 
 def start_app(port: int = 8000) -> None:
     """Start the backend and the frontend."""
     import threading
-    import webbrowser
+    import time
 
     import uvicorn
     from fastapi import FastAPI
@@ -218,7 +268,10 @@ def start_app(port: int = 8000) -> None:
     )
     frontend.start()
 
-    webbrowser.open(f"http://localhost:{port}/index.html")
+    time.sleep(0.5)  # give the servers time to start
+    print(  # noqa: T201
+        f"To configure your grid, open http://localhost:{port}/index.html in your browser."
+    )
 
     # wait for the backend thread and the frontend process to finish
     backend.join()
