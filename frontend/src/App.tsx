@@ -244,11 +244,19 @@ const App = () => {
                             title="Split Horizontally"
                             className="absolute top-2 right-2 p-1.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-500 hover:bg-blue-500 hover:text-white transition-all pointer-events-auto opacity-0 group-hover:opacity-100"
                             onClick={() => splitLeaf(path, "row")}
+                            style={{
+                                transform: `scale(${1 / zoom})`,
+                                transformOrigin: 'top right',
+                            }}
                         >
                             <Columns size={14} />
                         </button>
 
-                        <div className="flex items-center gap-1 p-1 bg-white/95 border border-slate-200 rounded-md shadow-lg pointer-events-auto transform transition-transform group-hover:scale-105">
+                        <div className="flex items-center gap-1 p-1 bg-white/95 border border-slate-200 rounded-md shadow-lg pointer-events-auto transform transition-transform group-hover:scale-105"
+                            style={{
+                                transform: `scale(${1 / zoom})`,
+                                transformOrigin: 'center',
+                            }}>
                             <select
                                 className="text-[11px] font-semibold text-slate-800 bg-transparent border-none focus:ring-0 outline-none px-1"
                                 value={node}
@@ -270,6 +278,10 @@ const App = () => {
                             title="Split Vertically"
                             className="absolute bottom-2 left-2 p-1.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-500 hover:bg-blue-500 hover:text-white transition-all pointer-events-auto opacity-0 group-hover:opacity-100"
                             onClick={() => splitLeaf(path, "column")}
+                            style={{
+                                transform: `scale(${1 / zoom})`,
+                                transformOrigin: 'bottom left',
+                            }}
                         >
                             <Rows size={14} />
                         </button>
@@ -298,6 +310,12 @@ const App = () => {
             </Group>
         );
     };
+
+    const buttonClass = "flex items-center gap-3 w-full py-2 px-1 text-slate-400 hover:text-blue-400 transition-colors text-sm font-medium"
+    const width = `${figsize.w * DPI}px`
+    const height = `${figsize.h * DPI}px`
+
+    const [zoom, setZoom] = useState(1);
 
     return (
         <div className="flex w-screen h-screen bg-[#0f172a] text-[#f1f5f9] font-sans overflow-hidden">
@@ -336,7 +354,7 @@ const App = () => {
 
                         <button
                             onClick={copyConfigToClipboard}
-                            className="flex items-center gap-3 w-full py-2 px-1 text-slate-400 hover:text-blue-400 transition-colors text-sm font-medium"
+                            className={buttonClass}
                         >
                             {configCopied ? <Check size={16} className="text-green-400" /> : <ClipboardCopy size={16} />}
                             {configCopied ? "Copied!" : "Copy Configuration"}
@@ -344,7 +362,7 @@ const App = () => {
 
                         <button
                             onClick={importFromClipboard}
-                            className="flex items-center gap-3 w-full py-2 px-1 text-slate-400 hover:text-blue-400 transition-colors text-sm font-medium"
+                            className={buttonClass}
                         >
                             <Import size={16} />
                             Import Configuration
@@ -352,7 +370,7 @@ const App = () => {
 
                         <button
                             onClick={copySvgToClipboard}
-                            className="flex items-center gap-3 w-full py-2 px-1 text-slate-400 hover:text-blue-400 transition-colors text-sm font-medium"
+                            className={buttonClass}
                         >
                             {svgCopied ? <Check size={16} className="text-green-400" /> : <ClipboardCopy size={16} />}
                             {svgCopied ? "Copied!" : "Copy SVG"}
@@ -360,7 +378,7 @@ const App = () => {
 
                         <button
                             onClick={downloadSvg}
-                            className="flex items-center gap-3 w-full py-2 px-1 text-slate-400 hover:text-blue-400 transition-colors text-sm font-medium"
+                            className={buttonClass}
                         >
                             <Download size={16} />
                             Download SVG
@@ -368,7 +386,7 @@ const App = () => {
 
                         <button
                             onClick={handleReset}
-                            className="flex items-center gap-3 w-full py-2 px-1 text-slate-400 hover:text-red-400 transition-colors text-sm font-medium"
+                            className={cn(buttonClass, "hover:text-red-400")}
                         >
                             <RotateCcw size={16} />
                             Reset All Progress
@@ -378,24 +396,47 @@ const App = () => {
             </aside>
 
             {/* VIEWPORT AREA */}
-            <main className="relative flex-1 flex items-center justify-center overflow-auto bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:24px_24px]">
-                <button
-                    className="absolute left-6 top-6 z-50 p-2.5 bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 text-white shadow-2xl transition-all"
-                    onClick={() => setSidebarOpen(!sidebarOpen)}
-                >
-                    <SidebarIcon size={20} />
-                </button>
+            <main className="relative flex-1 bg-[#0f172a] overflow-hidden flex flex-col">
+                {/* UI LAYER: Stays fixed on top of the scrolling area */}
+                <div className="absolute inset-0 z-50 pointer-events-none">
+                    {/* Sticky Sidebar Button */}
+                    <button
+                        className="pointer-events-auto absolute left-6 top-6 p-2.5 bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 text-white shadow-2xl transition-all"
+                        onClick={() => setSidebarOpen(!sidebarOpen)}
+                    >
+                        <SidebarIcon size={20} />
+                    </button>
 
-                <div
-                    className="relative bg-white shadow-[0_32px_64px_-16px_rgba(0,0,0,0.7)] rounded-sm"
-                    style={{ width: `${figsize.w * DPI}px`, height: `${figsize.h * DPI}px` }}
-                >
-                    <div className="absolute inset-0 z-0 pointer-events-none" dangerouslySetInnerHTML={{ __html: svgContent }} />
-                    {showOverlay && (
-                        <div className="absolute inset-0 z-10 pointer-events-none">
-                            <RecursiveGrid node={layout} path={[]} />
+                    {/* Sticky Zoom Controls */}
+                    <div className="pointer-events-auto absolute right-6 top-6 flex items-center gap-2 p-1.5 bg-slate-800/90 backdrop-blur border border-slate-700 rounded-xl shadow-2xl">
+                        <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} className="p-2 hover:bg-slate-700 rounded text-white">-</button>
+                        <span className="text-xs font-mono w-12 text-center text-slate-300 font-bold">{Math.round(zoom * 100)}%</span>
+                        <button onClick={() => setZoom(z => Math.min(3, z + 0.1))} className="p-2 hover:bg-slate-700 rounded text-white">+</button>
+                        <div className="w-px h-4 bg-slate-700 mx-1" />
+                        <button onClick={() => setZoom(1)} className="px-2 py-1 text-[10px] font-bold text-blue-400 hover:text-blue-300">RESET</button>
+                    </div>
+                </div>
+
+                {/* add the scrollable viewport */}
+                <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-700">
+                    <div className="w-full h-full">
+                        <div
+                            className="relative bg-white shadow-xl rounded-sm shrink-0"
+                            style={{
+                                width,
+                                height,
+                                transform: `scale(${zoom})`,
+                                transformOrigin: 'top left',
+                            }}
+                        >
+                            <div className="absolute inset-0 z-0 pointer-events-none" dangerouslySetInnerHTML={{ __html: svgContent }} />
+                            {showOverlay && (
+                                <div className="absolute inset-0 z-10 pointer-events-none">
+                                    <RecursiveGrid node={layout} path={[]} />
+                                </div>
+                            )}
                         </div>
-                    )}
+                    </div>
                 </div>
             </main>
         </div>
