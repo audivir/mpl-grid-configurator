@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, DragEvent } from 'react';
 import { Panel, Group, Separator, Layout as ResizableLayout } from 'react-resizable-panels';
 import { debounce, cloneDeep } from 'lodash';
 import {
@@ -11,7 +11,8 @@ import {
     ClipboardCopy,
     Check,
     Import,
-    Download
+    Download,
+    Grip
 } from 'lucide-react';
 import { cn } from 'react-lib-tools';
 
@@ -38,9 +39,11 @@ const App = () => {
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [configCopied, setConfigCopied] = useState(false);
     const [svgCopied, setSvgCopied] = useState(false);
+    const [zoom, setZoom] = useState(1);
+    const [draggedPath, setDraggedPath] = useState<string | null>(null);
 
     // --- LOCAL STORAGE INITIALIZATION ---
-    const [figsize, setFigsize] = useState(() => {
+    const [figsize, setFigsize] = useState<{ w: number, h: number }>(() => {
         const saved = localStorage.getItem(STORAGE_KEYS.FIGSIZE);
         return saved ? JSON.parse(saved) : { w: 8, h: 4 };
     });
@@ -122,7 +125,7 @@ const App = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const renderAll = useMemo(() => debounce(async (l, fs) => {
+    const renderAll = useMemo(() => debounce(async (l: Layout, fs: { w: number, h: number }) => {
         try {
             const response = await fetch(`${API_BASE}/render`, {
                 method: 'POST',
@@ -202,8 +205,6 @@ const App = () => {
             .map(Number);
         const [left_up, right_down] = Object.values(rlayout);
 
-        console.log("Send ratios:", rlayout, path, [left_up, right_down]);
-
         debouncedUpdateRatios(path, [left_up, right_down])
     };
 
@@ -235,10 +236,73 @@ const App = () => {
         });
     };
 
+    const dragAnimation = (ev: DragEvent) => {
+        const parent = (ev.currentTarget as Element).parentElement!;
+        ev.dataTransfer.setDragImage(parent, 0, 0);
+        const pathId = parent.parentElement!.parentElement!.id;
+        setDraggedPath(pathId);
+    };
+
+    const handleSwap = (pathIdA: string, pathIdB: string) => {
+        if (pathIdA === pathIdB) return;
+
+        const pathA = pathIdA.split("-").map(Number);
+        const pathB = pathIdB.split("-").map(Number);
+
+        setLayout(prev => {
+            const next = cloneDeep(prev);
+
+            const getAt = (root: Layout, p: number[]) => {
+                let curr = root;
+                for (const i of p) curr = (curr as LayoutNode).children[i];
+                return curr as LayoutNode;
+            };
+
+            const setAt = (root: Layout, p: number[], val: Layout) => {
+                if (p.length === 0) return val;
+                let curr = root;
+                for (let i = 0; i < p.length - 1; i++) curr = (curr as LayoutNode).children[p[i]];
+                (curr as LayoutNode).children[p[p.length - 1]] = val;
+                return root;
+            };
+
+            const valA = cloneDeep(getAt(next, pathA));
+            const valB = cloneDeep(getAt(next, pathB));
+
+            setAt(next, pathA, valB);
+            setAt(next, pathB, valA);
+
+            return next;
+        });
+        // dont debounce rerender
+        renderAll(layout, figsize);
+    };
     const RecursiveGrid = ({ node, path }: { node: Layout, path: number[] }) => {
+        const [isOver, setIsOver] = useState(false);
         if (typeof node === "string") {
+            const pathId = path.join("-");
             return (
-                <div className="relative w-full h-full border border-blue-500/10 group">
+                <div
+                    // className="relative w-full h-full border border-blue-500/10 group"
+                    id={pathId}
+
+                    // Full Surface Drop Logic
+                    onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsOver(true);
+                    }}
+                    onDragLeave={() => setIsOver(false)}
+                    onDrop={(e) => {
+                        e.preventDefault();
+                        setIsOver(false);
+                        if (draggedPath) handleSwap(draggedPath, pathId);
+                    }}
+                    className={cn(
+                        "relative w-full h-full border border-blue-500/10 transition-all pointer-events-auto",
+                        isOver ? "bg-blue-500/30 border-blue-500 border-2 z-20" : null
+                    )}
+                >
+
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <button
                             title="Split Horizontally"
@@ -257,6 +321,16 @@ const App = () => {
                                 transform: `scale(${1 / zoom})`,
                                 transformOrigin: 'center',
                             }}>
+                            {path.length > 0 && (
+                                <button
+                                    draggable
+                                    className="p-1 text-slate-500 hover:bg-slate-50 rounded transition-colors"
+                                    onDragStart={dragAnimation}
+                                    onDragEnd={() => setDraggedPath(null)}
+                                >
+                                    <Grip size={12} />
+                                </button>
+                            )}
                             <select
                                 className="text-[11px] font-semibold text-slate-800 bg-transparent border-none focus:ring-0 outline-none px-1"
                                 value={node}
@@ -286,7 +360,7 @@ const App = () => {
                             <Rows size={14} />
                         </button>
                     </div>
-                </div>
+                </div >
             );
         }
 
@@ -315,7 +389,6 @@ const App = () => {
     const width = `${figsize.w * DPI}px`
     const height = `${figsize.h * DPI}px`
 
-    const [zoom, setZoom] = useState(1);
 
     return (
         <div className="flex w-screen h-screen bg-[#0f172a] text-[#f1f5f9] font-sans overflow-hidden">
