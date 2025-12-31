@@ -40,7 +40,8 @@ ignore = [
     "ANN401",  # Dynamically typed expressions are disallowed
     "COM812",
     "D203",
-    "D212",
+    "D213",
+    "D413",
     "EM101",
     "EM102",
     "FBT001",

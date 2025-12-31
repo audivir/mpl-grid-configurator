@@ -14,8 +14,7 @@ DRAW_FUNCS: dict[str, DrawFunc] = {}
 
 
 def register(func: DrawFuncT) -> DrawFuncT:
-    """
-    Register a drawing function. Can be used as a decorator.
+    """Register a drawing function. Can be used as a decorator.
 
     A drawing function can be:
     * Variant 1: a function that takes a Matplotlib figure, draws on it and returns any of its axes.
@@ -41,7 +40,6 @@ def register(func: DrawFuncT) -> DrawFuncT:
 
     Returns:
         The registered function.
-
     """
     if func in DRAW_FUNCS.values():
         logger.warning("Function %s is already registered.", func.__name__)

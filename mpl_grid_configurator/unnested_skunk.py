@@ -10,13 +10,11 @@ from matplotlib.patches import Rectangle
 
 
 def connect(ax: Axes, gid: str) -> None:
-    """
-    Add a rectangle to given matplotlib artist that can be replaced.
+    """Add a rectangle to given matplotlib artist that can be replaced.
 
     Args:
         ax: matplotlib artist that has `add_artist`, like axes
         gid: string that is used for key to replace later
-
     """
     p = Rectangle((0, 0), 1, 1)
     ax.add_artist(p)
@@ -38,6 +36,12 @@ def _extract_loc(e: ET._Element) -> tuple[float, float, float, float]:
     return min(x), min(y), max(x) - min(x), max(y) - min(y)
 
 
+def _to_float(v: str | float) -> float:
+    if isinstance(v, float):
+        return v
+    return float(v.removesuffix("px").removesuffix("pt"))
+
+
 def insert(
     repl: Mapping[str, str],
     svg: str,
@@ -45,8 +49,7 @@ def insert(
     center_h: bool = True,
     center_v: bool = True,
 ) -> str:
-    """
-    Replace elements by `id` in `svg`.
+    """Replace elements by `id` in `svg`.
 
     Args:
         repl: Mapping where keys are ids from `connect` and values are SVGs to insert.
@@ -57,7 +60,6 @@ def insert(
 
     Returns:
         SVG as string
-
     """
     root, idmap = ET.XMLID(svg.encode())
 
@@ -77,8 +79,11 @@ def insert(
 
         # Determine allocated space
         if "width" in e.attrib:
-            x, y = float(e.attrib.get("x", 0)), float(e.attrib.get("y", 0))
-            dx, dy = float(e.attrib["width"]), float(e.attrib["height"])
+            x, y = (
+                _to_float(e.attrib.get("x", 0)),
+                _to_float(e.attrib.get("y", 0)),
+            )
+            dx, dy = _to_float(e.attrib["width"]), _to_float(e.attrib["height"])
             # clear element to reuse as container
             e.clear()
         else:
@@ -94,8 +99,8 @@ def insert(
             raise ValueError("Replacement SVG is not valid XML.") from e
 
         # Get intrinsic width/height of replacement SVG
-        rw = float(rr.attrib.get("width", dx))
-        rh = float(rr.attrib.get("height", dy))
+        rw = _to_float(rr.attrib.get("width", dx))
+        rh = _to_float(rr.attrib.get("height", dy))
 
         if asp:
             scale_x = scale_y = min(dx / rw, dy / rh)
