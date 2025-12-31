@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, DragEvent } from 'react';
-import { Panel, Group, Separator, Layout as ResizableLayout } from 'react-resizable-panels';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Panel, Group, Separator, Layout as ResizedLayout } from 'react-resizable-panels';
 import { debounce, cloneDeep } from 'lodash';
 import {
     Settings,
@@ -12,27 +12,59 @@ import {
     Check,
     Import,
     Download,
-    Grip
+    Grip,
 } from 'lucide-react';
 import { cn } from 'react-lib-tools';
 
 const API_BASE = "http://localhost:8765";
-const DPI = 96;
+const DEFAULT_DPI = 96;
 const STORAGE_KEYS = {
     LAYOUT: 'plot-layout-v1',
     FIGSIZE: 'plot-figsize-v1'
-};
+} as const;
 
 type Orientation = 'row' | 'column';
-type Layout = string | LayoutNode;
-
-interface LayoutNode {
+type LayoutNode = {
     orient: Orientation;
     children: [Layout, Layout];
     ratios: [number, number];
+};
+type Layout = string | LayoutNode;
+
+interface FigSize {
+    w: number;
+    h: number;
 }
 
-const App = () => {
+interface ControlButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+    icon: React.ElementType;
+    label: string;
+    variant?: 'default' | 'danger' | 'success';
+}
+
+const ControlButton = ({ icon: Icon, label, variant = 'default', className, ...props }: ControlButtonProps) => {
+    const variants = {
+        default: "text-slate-400 hover:text-blue-400",
+        danger: "text-slate-400 hover:text-red-400",
+        success: "text-green-400"
+    };
+
+    return (
+        <button
+            className={cn(
+                "flex items-center gap-3 w-full py-2 px-1 transition-colors text-sm font-medium outline-none",
+                variants[variant],
+                className
+            )}
+            {...props}
+        >
+            <Icon size={16} />
+            {label}
+        </button>
+    );
+};
+
+const App: React.FC = () => {
     const [availableFuncs, setAvailableFuncs] = useState<string[]>([]);
     const [svgContent, setSvgContent] = useState<string>("");
     const [showOverlay, setShowOverlay] = useState(true);
@@ -42,8 +74,7 @@ const App = () => {
     const [zoom, setZoom] = useState(1);
     const [draggedPath, setDraggedPath] = useState<string | null>(null);
 
-    // --- LOCAL STORAGE INITIALIZATION ---
-    const [figsize, setFigsize] = useState<{ w: number, h: number }>(() => {
+    const [figsize, setFigsize] = useState<FigSize>(() => {
         const saved = localStorage.getItem(STORAGE_KEYS.FIGSIZE);
         return saved ? JSON.parse(saved) : { w: 8, h: 4 };
     });
@@ -53,7 +84,6 @@ const App = () => {
         return saved ? JSON.parse(saved) : "draw_empty";
     });
 
-    // Sync state to local storage
     useEffect(() => {
         localStorage.setItem(STORAGE_KEYS.FIGSIZE, JSON.stringify(figsize));
     }, [figsize]);
@@ -62,70 +92,7 @@ const App = () => {
         localStorage.setItem(STORAGE_KEYS.LAYOUT, JSON.stringify(layout));
     }, [layout]);
 
-    // --- HANDLERS ---
-    const handleReset = () => {
-        if (window.confirm("Reset layout to default?")) {
-            setLayout("draw_empty");
-            setFigsize({ w: 8, h: 4 });
-            localStorage.clear();
-        }
-    };
-
-    const copyConfigToClipboard = async () => {
-        await navigator.clipboard.writeText(JSON.stringify({ layout, figsize }, null, 2));
-        setConfigCopied(true);
-        setTimeout(() => setConfigCopied(false), 2000);
-    };
-
-    const copySvgToClipboard = async () => {
-        await navigator.clipboard.writeText(svgContent);
-        setSvgCopied(true);
-        setTimeout(() => setSvgCopied(false), 2000);
-    };
-
-    const downloadSvg = () => {
-        const blob = new Blob([svgContent], { type: 'image/svg+xml' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'plot.svg';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    };
-
-    const importFromClipboard = () => {
-        const raw = window.prompt("Paste your JSON configuration here:");
-        if (!raw) return;
-        try {
-            const parsed = JSON.parse(raw);
-            if (parsed.layout && parsed.figsize) {
-                setLayout(parsed.layout);
-                setFigsize(parsed.figsize);
-            } else {
-                alert("Invalid format: Missing layout or figsize keys.");
-            }
-        } catch (e) {
-            alert("Invalid JSON data.");
-        }
-    };
-
-    // --- BACKEND SYNC ---
-    useEffect(() => {
-        fetch(`${API_BASE}/functions`)
-            .then(r => r.json())
-            .then(data => {
-                setAvailableFuncs(data);
-                if (data.length > 0 && layout === "draw_empty") {
-                    setLayout(data[0]);
-                }
-            })
-            .catch(e => console.error("Backend connection failed:", e));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    const renderAll = useMemo(() => debounce(async (l: Layout, fs: { w: number, h: number }) => {
+    const renderLayout = useMemo(() => debounce(async (l: Layout, fs: FigSize) => {
         try {
             const response = await fetch(`${API_BASE}/render`, {
                 method: 'POST',
@@ -137,19 +104,30 @@ const App = () => {
                 setSvgContent(data.svg);
             }
         } catch (e) {
-            console.error("Network Error:", e);
+            console.error("Rendering failed:", e);
         }
     }, 400), []);
 
     useEffect(() => {
-        renderAll(layout, figsize);
-    }, [layout, figsize, renderAll]);
+        fetch(`${API_BASE}/functions`)
+            .then(r => r.json())
+            .then(data => {
+                setAvailableFuncs(data);
+                if (data.length > 0 && layout === "draw_empty") setLayout(data[0]);
+            })
+            .catch(err => console.error("Could not fetch functions:", err));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-    // --- RECURSIVE GRID HELPERS ---
-    const updateAtSubPath = (path: number[], updater: (node: Layout) => Layout) => {
+    useEffect(() => {
+        renderLayout(layout, figsize);
+    }, [layout, figsize, renderLayout]);
+
+    const updateAtSubPath = useCallback((path: number[], updater: (node: Layout) => Layout) => {
         setLayout(prev => {
             const next = cloneDeep(prev);
             if (path.length === 0) return updater(next);
+
             let target = next as LayoutNode;
             for (let i = 0; i < path.length - 1; i++) {
                 target = target.children[path[i]] as LayoutNode;
@@ -158,14 +136,14 @@ const App = () => {
             target.children[lastIdx] = updater(target.children[lastIdx]);
             return next;
         });
-    };
+    }, []);
 
-    const ratiosChanged = (oldRatios: [number, number], newRatios: [number, number]) => {
+    const haveRatiosChanged = (oldRatios: [number, number], newRatios: [number, number]) => {
         const EPSILON = 0.01;
         return oldRatios.some((val, idx) => Math.abs(val - newRatios[idx]) > EPSILON);
     };
 
-    const debouncedUpdateRatios = useMemo(
+    const debouncedHandleRatioChange = useMemo(
         () =>
             debounce((path: number[], newRatios: [number, number]) => {
                 setLayout(prev => {
@@ -175,7 +153,7 @@ const App = () => {
                     let target = next as LayoutNode;
                     if (path.length === 0) {
                         // Root node check
-                        if (typeof next === 'string' || !ratiosChanged(next.ratios, newRatios)) return prev;
+                        if (typeof next === 'string' || !haveRatiosChanged(next.ratios, newRatios)) return prev;
                         next.ratios = newRatios;
                     } else {
                         for (let i = 0; i < path.length - 1; i++) {
@@ -186,7 +164,7 @@ const App = () => {
 
                         // GUARD: If ratios haven't really changed, return previous state object
                         // returning 'prev' (the same reference) prevents a React re-render
-                        if (typeof targetNode === "string" || !ratiosChanged(targetNode.ratios, newRatios)) {
+                        if (typeof targetNode === "string" || !haveRatiosChanged(targetNode.ratios, newRatios)) {
                             return prev;
                         }
 
@@ -197,18 +175,17 @@ const App = () => {
             }, 100),
         []
     );
-
-    const updateRatios = (rlayout: ResizableLayout) => {
-        const path = Object.keys(rlayout)[0]
+    const handleRatioChange = (resizedLayout: ResizedLayout) => {
+        const path = Object.keys(resizedLayout)[0]
             .split("-")
             .slice(1, -1)
             .map(Number);
-        const [left_up, right_down] = Object.values(rlayout);
+        const [left_up, right_down] = Object.values(resizedLayout);
 
-        debouncedUpdateRatios(path, [left_up, right_down])
+        debouncedHandleRatioChange(path, [left_up, right_down])
     };
 
-    const splitLeaf = (path: number[], orient: Orientation) => {
+    const handleSplit = (path: number[], orient: Orientation) => {
         updateAtSubPath(path, (currentLeaf) => ({
             orient,
             ratios: [50, 50],
@@ -216,7 +193,7 @@ const App = () => {
         }));
     };
 
-    const deleteNode = (path: number[]) => {
+    const handleDelete = (path: number[]) => {
         if (path.length === 0) return;
         const parentPath = path.slice(0, -1);
         const indexToDelete = path[path.length - 1];
@@ -236,34 +213,25 @@ const App = () => {
         });
     };
 
-    const dragAnimation = (ev: DragEvent) => {
-        const parent = (ev.currentTarget as Element).parentElement!;
-        ev.dataTransfer.setDragImage(parent, 0, 0);
-        const pathId = parent.parentElement!.parentElement!.id;
-        setDraggedPath(pathId);
-    };
-
     const handleSwap = (pathIdA: string, pathIdB: string) => {
         if (pathIdA === pathIdB) return;
-
-        const pathA = pathIdA.split("-").map(Number);
-        const pathB = pathIdB.split("-").map(Number);
+        const pathA = pathIdA.split("-").slice(1).map(Number);
+        const pathB = pathIdB.split("-").slice(1).map(Number);
 
         setLayout(prev => {
             const next = cloneDeep(prev);
 
             const getAt = (root: Layout, p: number[]) => {
                 let curr = root;
-                for (const i of p) curr = (curr as LayoutNode).children[i];
-                return curr as LayoutNode;
+                for (let i = 0; i < p.length; i++) curr = (curr as LayoutNode).children[p[i]];
+                return curr as string;
             };
 
-            const setAt = (root: Layout, p: number[], val: Layout) => {
-                if (p.length === 0) return val;
-                let curr = root;
-                for (let i = 0; i < p.length - 1; i++) curr = (curr as LayoutNode).children[p[i]];
-                (curr as LayoutNode).children[p[p.length - 1]] = val;
-                return root;
+            const setAt = (root: Layout, p: number[], val: string) => {
+                if (p.length === 0) return;
+                let curr = root as LayoutNode;
+                for (let i = 0; i < p.length - 1; i++) curr = curr.children[p[i]] as LayoutNode;
+                curr.children[p[p.length - 1]] = val;
             };
 
             const valA = cloneDeep(getAt(next, pathA));
@@ -271,26 +239,35 @@ const App = () => {
 
             setAt(next, pathA, valB);
             setAt(next, pathB, valA);
-
             return next;
         });
-        // dont debounce rerender
-        renderAll(layout, figsize);
     };
-    const RecursiveGrid = ({ node, path }: { node: Layout, path: number[] }) => {
+
+    const copyToClipboard = async (text: string, setter: (v: boolean) => void) => {
+        await navigator.clipboard.writeText(text);
+        setter(true);
+        setTimeout(() => setter(false), 2000);
+    };
+
+    const downloadSvg = () => {
+        const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'plot.svg';
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const RecursiveGrid = ({ node, path }: { node: Layout; path: number[] }) => {
         const [isOver, setIsOver] = useState(false);
+        const pathId = [0, ...path].join("-");
+
         if (typeof node === "string") {
-            const pathId = path.join("-");
             return (
                 <div
-                    // className="relative w-full h-full border border-blue-500/10 group"
                     id={pathId}
-
-                    // Full Surface Drop Logic
-                    onDragOver={(e) => {
-                        e.preventDefault();
-                        setIsOver(true);
-                    }}
+                    onDragOver={(e) => { e.preventDefault(); setIsOver(true); }}
                     onDragLeave={() => setIsOver(false)}
                     onDrop={(e) => {
                         e.preventDefault();
@@ -298,84 +275,79 @@ const App = () => {
                         if (draggedPath) handleSwap(draggedPath, pathId);
                     }}
                     className={cn(
-                        "relative w-full h-full border border-blue-500/10 transition-all pointer-events-auto",
-                        isOver ? "bg-blue-500/30 border-blue-500 border-2 z-20" : null
+                        "relative w-full h-full border border-blue-500/10 transition-all group pointer-events-auto",
+                        isOver && "bg-blue-500/20 border-blue-500 border-2 z-20"
                     )}
                 >
-
+                    {/* Node Controls */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <button
-                            title="Split Horizontally"
-                            className="absolute top-2 right-2 p-1.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-500 hover:bg-blue-500 hover:text-white transition-all pointer-events-auto opacity-0 group-hover:opacity-100"
-                            onClick={() => splitLeaf(path, "row")}
-                            style={{
-                                transform: `scale(${1 / zoom})`,
-                                transformOrigin: 'top right',
-                            }}
+                            title="Split Horizontal"
+                            className="absolute top-2 right-2 p-1.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-500 hover:bg-blue-500 hover:text-white origin-top-right transition-all pointer-events-auto opacity-0 group-hover:opacity-100"
+                            onClick={() => handleSplit(path, "row")}
+                            style={{ transform: `scale(${1 / zoom})` }}
                         >
                             <Columns size={14} />
                         </button>
 
-                        <div className="flex items-center gap-1 p-1 bg-white/95 border border-slate-200 rounded-md shadow-lg pointer-events-auto transform transition-transform group-hover:scale-105"
-                            style={{
-                                transform: `scale(${1 / zoom})`,
-                                transformOrigin: 'center',
-                            }}>
+                        <div
+                            className="flex items-center gap-1 p-1 bg-white/95 border border-slate-200 rounded shadow-sm pointer-events-auto transform transition-transform group-hover:scale-105"
+                            id={pathId}
+                            style={{ transform: `scale(${1 / zoom})` }}
+                        >
                             {path.length > 0 && (
                                 <button
                                     draggable
-                                    className="p-1 text-slate-500 hover:bg-slate-50 rounded transition-colors"
-                                    onDragStart={dragAnimation}
+                                    className="p-1 text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing"
+                                    onDragStart={(e) => {
+                                        const parent = (e.currentTarget as HTMLElement).parentElement!;
+                                        const pathId = parent.id;
+                                        e.dataTransfer.setDragImage(parent, 20, 20);
+                                        setDraggedPath(pathId);
+                                    }}
                                     onDragEnd={() => setDraggedPath(null)}
                                 >
                                     <Grip size={12} />
                                 </button>
                             )}
                             <select
-                                className="text-[11px] font-semibold text-slate-800 bg-transparent border-none focus:ring-0 outline-none px-1"
+                                className="text-[11px] font-bold text-slate-700 bg-transparent border-none focus:ring-0 cursor-pointer outline-none px-1"
                                 value={node}
                                 onChange={e => updateAtSubPath(path, () => e.target.value)}
                             >
                                 {availableFuncs.map(f => <option key={f} value={f}>{f}</option>)}
                             </select>
                             {path.length > 0 && (
-                                <button
-                                    className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
-                                    onClick={() => deleteNode(path)}
-                                >
+                                <button className="p-1 text-red-400 hover:text-red-600" onClick={() => handleDelete(path)}>
                                     <Trash2 size={12} />
                                 </button>
                             )}
                         </div>
 
                         <button
-                            title="Split Vertically"
-                            className="absolute bottom-2 left-2 p-1.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-500 hover:bg-blue-500 hover:text-white transition-all pointer-events-auto opacity-0 group-hover:opacity-100"
-                            onClick={() => splitLeaf(path, "column")}
-                            style={{
-                                transform: `scale(${1 / zoom})`,
-                                transformOrigin: 'bottom left',
-                            }}
+                            title="Split Vertical"
+                            className="absolute bottom-2 left-2 p-1.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-500 hover:bg-blue-500 hover:text-white origin-bottom-left transition-all pointer-events-auto opacity-0 group-hover:opacity-100"
+                            onClick={() => handleSplit(path, "column")}
+                            style={{ transform: `scale(${1 / zoom})` }}
                         >
                             <Rows size={14} />
                         </button>
                     </div>
-                </div >
+                </div>
             );
         }
 
-        const pathId = [0, ...path].join("-");
         return (
             <Group
                 orientation={node.orient === "row" ? "horizontal" : "vertical"}
                 className="w-full h-full"
-                onLayoutChange={updateRatios}
+                onLayoutChange={handleRatioChange}
             >
                 <Panel defaultSize={node.ratios[0]} id={pathId + "-0"}>
                     <RecursiveGrid node={node.children[0]} path={[...path, 0]} />
                 </Panel>
                 <Separator className={cn(
-                    "bg-slate-200 hover:bg-blue-400 active:bg-blue-600 transition-colors",
+                    "bg-slate-200 hover:bg-blue-400 transition-colors",
                     node.orient === "row" ? "w-1" : "h-1"
                 )} />
                 <Panel defaultSize={node.ratios[1]} id={pathId + "-1"}>
@@ -385,130 +357,140 @@ const App = () => {
         );
     };
 
-    const buttonClass = "flex items-center gap-3 w-full py-2 px-1 text-slate-400 hover:text-blue-400 transition-colors text-sm font-medium"
-    const width = `${figsize.w * DPI}px`
-    const height = `${figsize.h * DPI}px`
-
 
     return (
-        <div className="flex w-screen h-screen bg-[#0f172a] text-[#f1f5f9] font-sans overflow-hidden">
-            {/* SIDEBAR */}
+        <div className="flex w-screen h-screen bg-[#0f172a] text-[#f1f5f9] font-sans overflow-hidden select-none">
+            {/* Sidebar */}
             <aside className={cn(
-                "bg-[#1e293b] border-r border-slate-700 transition-all duration-300 ease-in-out shrink-0 overflow-hidden",
-                sidebarOpen ? "w-[260px] p-6" : "w-0 p-0"
+                "bg-[#1e293b] border-r border-slate-700 transition-all duration-300 ease-in-out shrink-0 overflow-y-auto",
+                sidebarOpen ? "w-[280px] p-6" : "w-0 p-0 opacity-0"
             )}>
-                <div className="flex items-center gap-3 mb-8 pb-4 border-b border-slate-700">
-                    <Settings size={20} className="text-blue-400" />
-                    <h3 className="font-bold text-sm tracking-tight">GRID CONFIGURATOR</h3>
-                </div>
+                <header className="flex items-center gap-3 mb-8 pb-4 border-b border-slate-700">
+                    <Settings size={18} className="text-blue-400" />
+                    <h3 className="font-bold text-xs tracking-widest uppercase text-slate-300">MPL GRID</h3>
+                </header>
 
-                <div className="space-y-6">
-                    <div className="space-y-3">
-                        <div className="flex justify-between text-xs text-slate-400 font-medium">
-                            <span>WIDTH</span>
+                <section className="space-y-6">
+                    <div className="space-y-4">
+                        <div className="flex justify-between text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                            <span>Width</span>
                             <span className="text-blue-400">{figsize.w}</span>
                         </div>
-                        <input type="range" min="4" max="24" step="0.5" value={figsize.w} onChange={e => setFigsize({ ...figsize, w: +e.target.value })} className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
-                    </div>
+                        <input
+                            type="range" min="4" max="24" step="0.5"
+                            value={figsize.w}
+                            onChange={e => setFigsize(prev => ({ ...prev, w: +e.target.value }))}
+                            className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                        />
 
-                    <div className="space-y-3">
-                        <div className="flex justify-between text-xs text-slate-400 font-medium">
-                            <span>HEIGHT</span>
+                        <div className="flex justify-between text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                            <span>Height</span>
                             <span className="text-blue-400">{figsize.h}</span>
                         </div>
-                        <input type="range" min="2" max="18" step="0.5" value={figsize.h} onChange={e => setFigsize({ ...figsize, h: +e.target.value })} className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+                        <input
+                            type="range" min="2" max="18" step="0.5"
+                            value={figsize.h}
+                            onChange={e => setFigsize(prev => ({ ...prev, h: +e.target.value }))}
+                            className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                        />
                     </div>
 
-                    <div className="pt-2 space-y-1">
+                    <div className="pt-4 space-y-2 border-t border-slate-700/50">
                         <label className="flex items-center gap-3 py-2 px-1 cursor-pointer hover:text-white transition-colors">
-                            <input type="checkbox" checked={showOverlay} onChange={e => setShowOverlay(e.target.checked)} className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-blue-500 focus:ring-blue-500" />
-                            <span className="text-sm font-medium">Layout Overlay</span>
+                            <input
+                                type="checkbox" checked={showOverlay}
+                                onChange={e => setShowOverlay(e.target.checked)}
+                                className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-blue-500"
+                            />
+                            <span className="text-sm font-medium">Show Overlay</span>
                         </label>
 
-                        <button
-                            onClick={copyConfigToClipboard}
-                            className={buttonClass}
-                        >
-                            {configCopied ? <Check size={16} className="text-green-400" /> : <ClipboardCopy size={16} />}
-                            {configCopied ? "Copied!" : "Copy Configuration"}
-                        </button>
+                        <ControlButton
+                            icon={configCopied ? Check : ClipboardCopy}
+                            label={configCopied ? "Copied!" : "Copy Config"}
+                            variant={configCopied ? "success" : "default"}
+                            onClick={() => copyToClipboard(JSON.stringify({ layout, figsize }, null, 2), setConfigCopied)}
+                        />
 
-                        <button
-                            onClick={importFromClipboard}
-                            className={buttonClass}
-                        >
-                            <Import size={16} />
-                            Import Configuration
-                        </button>
+                        <ControlButton
+                            icon={Import}
+                            label="Import Config"
+                            onClick={() => {
+                                const raw = window.prompt("Paste Config JSON:");
+                                if (raw) {
+                                    try {
+                                        const p = JSON.parse(raw);
+                                        setLayout(p.layout); setFigsize(p.figsize);
+                                    } catch { alert("Invalid JSON"); }
+                                }
+                            }}
+                        />
 
-                        <button
-                            onClick={copySvgToClipboard}
-                            className={buttonClass}
-                        >
-                            {svgCopied ? <Check size={16} className="text-green-400" /> : <ClipboardCopy size={16} />}
-                            {svgCopied ? "Copied!" : "Copy SVG"}
-                        </button>
+                        <ControlButton
+                            icon={svgCopied ? Check : Download}
+                            label={svgCopied ? "Copied!" : "Copy SVG"}
+                            variant={svgCopied ? "success" : "default"}
+                            onClick={() => copyToClipboard(svgContent, setSvgCopied)}
+                        />
 
-                        <button
-                            onClick={downloadSvg}
-                            className={buttonClass}
-                        >
-                            <Download size={16} />
-                            Download SVG
-                        </button>
+                        <ControlButton icon={Download} label="Download SVG" onClick={downloadSvg} />
 
-                        <button
-                            onClick={handleReset}
-                            className={cn(buttonClass, "hover:text-red-400")}
-                        >
-                            <RotateCcw size={16} />
-                            Reset All Progress
-                        </button>
+                        <ControlButton
+                            icon={RotateCcw}
+                            label="Reset Layout"
+                            variant="danger"
+                            onClick={() => {
+                                if (!window.confirm("Reset all progress?")) return;
+                                setFigsize({ w: 8, h: 4 });
+                                setLayout("draw_empty");
+                            }}
+                        />
                     </div>
-                </div>
+                </section>
             </aside>
 
-            {/* VIEWPORT AREA */}
-            <main className="relative flex-1 bg-[#0f172a] overflow-hidden flex flex-col">
-                {/* UI LAYER: Stays fixed on top of the scrolling area */}
-                <div className="absolute inset-0 z-50 pointer-events-none">
-                    {/* Sticky Sidebar Button */}
+            {/* Workspace Viewport */}
+            <main className="relative flex-1 bg-[#0f172a] overflow-hidden">
+                {/* Floating Controls */}
+                {showOverlay && <div className="absolute inset-0 z-50 pointer-events-none p-6">
                     <button
-                        className="pointer-events-auto absolute left-6 top-6 p-2.5 bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 text-white shadow-2xl transition-all"
+                        className="pointer-events-auto p-2.5 bg-slate-800/80 backdrop-blur border border-slate-700 rounded-lg hover:bg-slate-700 text-white shadow-xl transition-all"
                         onClick={() => setSidebarOpen(!sidebarOpen)}
                     >
-                        <SidebarIcon size={20} />
+                        <SidebarIcon size={18} />
                     </button>
 
-                    {/* Sticky Zoom Controls */}
-                    <div className="pointer-events-auto absolute right-6 top-6 flex items-center gap-2 p-1.5 bg-slate-800/90 backdrop-blur border border-slate-700 rounded-xl shadow-2xl">
-                        <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} className="p-2 hover:bg-slate-700 rounded text-white">-</button>
-                        <span className="text-xs font-mono w-12 text-center text-slate-300 font-bold">{Math.round(zoom * 100)}%</span>
-                        <button onClick={() => setZoom(z => Math.min(3, z + 0.1))} className="p-2 hover:bg-slate-700 rounded text-white">+</button>
+                    <div className="pointer-events-auto absolute right-6 top-6 flex items-center gap-2 p-1.5 bg-slate-800/80 backdrop-blur border border-slate-700 rounded-lg shadow-xl">
+                        <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} className="w-8 h-8 flex items-center justify-center hover:bg-slate-700 rounded text-lg">-</button>
+                        <span className="text-[10px] font-mono w-10 text-center text-slate-400 font-bold">{Math.round(zoom * 100)}%</span>
+                        <button onClick={() => setZoom(z => Math.min(3, z + 0.1))} className="w-8 h-8 flex items-center justify-center hover:bg-slate-700 rounded text-lg">+</button>
                         <div className="w-px h-4 bg-slate-700 mx-1" />
-                        <button onClick={() => setZoom(1)} className="px-2 py-1 text-[10px] font-bold text-blue-400 hover:text-blue-300">RESET</button>
+                        <button onClick={() => setZoom(1)} className="px-2 text-[10px] font-bold text-blue-400 hover:text-blue-300">RESET</button>
                     </div>
-                </div>
+                </div>}
 
-                {/* add the scrollable viewport */}
-                <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-700">
-                    <div className="w-full h-full">
+                {/* Scrollable Canvas */}
+                <div className="w-full h-full overflow-auto scrollbar-hide">
+                    <div
+                        className="relative bg-white shadow-xl origin-top-left transition-transform duration-75 ease-out"
+                        style={{
+                            width: `${figsize.w * DEFAULT_DPI}px`,
+                            height: `${figsize.h * DEFAULT_DPI}px`,
+                            transform: `scale(${zoom})`,
+                        }}
+                    >
+                        {/* SVG content */}
                         <div
-                            className="relative bg-white shadow-xl rounded-sm shrink-0"
-                            style={{
-                                width,
-                                height,
-                                transform: `scale(${zoom})`,
-                                transformOrigin: 'top left',
-                            }}
-                        >
-                            <div className="absolute inset-0 z-0 pointer-events-none" dangerouslySetInnerHTML={{ __html: svgContent }} />
-                            {showOverlay && (
-                                <div className="absolute inset-0 z-10 pointer-events-none">
-                                    <RecursiveGrid node={layout} path={[]} />
-                                </div>
-                            )}
-                        </div>
+                            className="absolute inset-0 z-0 pointer-events-none"
+                            dangerouslySetInnerHTML={{ __html: svgContent }}
+                        />
+
+                        {/* Overlay */}
+                        {showOverlay && (
+                            <div className="absolute inset-0 z-10">
+                                <RecursiveGrid node={layout} path={[]} />
+                            </div>
+                        )}
                     </div>
                 </div>
             </main>
