@@ -32,7 +32,7 @@ def draw_scatter(container: Figure | SubFigure) -> Axes:
     """Draw a scatter plot."""
     ax = container.subplots()
 
-    rnd_gen = np.random.default_rng()
+    rnd_gen = np.random.default_rng(seed=42)
 
     ax.scatter(rnd_gen.random(20), rnd_gen.random(20), color="#ff7f0e")
     ax.set_title("Random Distribution")

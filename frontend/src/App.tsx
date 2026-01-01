@@ -18,6 +18,8 @@ import { cn } from 'react-lib-tools';
 
 const API_BASE = "http://localhost:8765";
 const DEFAULT_DPI = 96;
+const CHANGE_DEBOUNCE = 50;
+const RENDER_DEBOUNCE = 150;
 const STORAGE_KEYS = {
     LAYOUT: 'plot-layout-v1',
     FIGSIZE: 'plot-figsize-v1'
@@ -157,7 +159,7 @@ const App: React.FC = () => {
         } catch (e) {
             console.error("Rendering failed:", e);
         }
-    }, 400), []);
+    }, RENDER_DEBOUNCE), []);
 
     useEffect(() => {
         fetch(`${API_BASE}/functions`)
@@ -192,8 +194,8 @@ const App: React.FC = () => {
         return oldRatios.some((val, idx) => Math.abs(val - newRatios[idx]) > EPSILON);
     };
 
-    const debouncedSetRowChange = useMemo(() => debounce(setRowChange, 100), []);
-    const debouncedSetColumnChange = useMemo(() => debounce(setColumnChange, 100), []);
+    const debouncedSetRowChange = useMemo(() => debounce(setRowChange, CHANGE_DEBOUNCE), []);
+    const debouncedSetColumnChange = useMemo(() => debounce(setColumnChange, CHANGE_DEBOUNCE), []);
 
     // follow changes and update layout
     useEffect(() => {
