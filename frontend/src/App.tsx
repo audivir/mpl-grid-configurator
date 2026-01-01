@@ -113,7 +113,6 @@ const App: React.FC = () => {
             .then(r => r.json())
             .then(data => {
                 setAvailableFuncs(data);
-                if (data.length > 0 && layout === "draw_empty") setLayout(data[0]);
             })
             .catch(err => console.error("Could not fetch functions:", err));
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -143,36 +142,41 @@ const App: React.FC = () => {
         return oldRatios.some((val, idx) => Math.abs(val - newRatios[idx]) > EPSILON);
     };
 
+    const instantHandleRatioChange = (path: number[], newRatios: [number, number], force: boolean = false) => {
+        setLayout(prev => {
+            const next = cloneDeep(prev);
+
+            // Navigate to the target node
+            let target = next as LayoutNode;
+            if (path.length === 0) {
+                // Root node check
+                if (typeof next === 'string' || (!haveRatiosChanged(next.ratios, newRatios) && !force)) return prev;
+                next.ratios = newRatios;
+            } else {
+                for (let i = 0; i < path.length - 1; i++) {
+                    target = target.children[path[i]] as LayoutNode;
+                }
+                const lastIdx = path[path.length - 1];
+                const targetNode = target.children[lastIdx] as LayoutNode;
+
+                // GUARD: If ratios haven't really changed, return previous state object
+                // returning 'prev' (the same reference) prevents a React re-render
+                if (typeof targetNode === "string" || (!haveRatiosChanged(targetNode.ratios, newRatios) && !force)) {
+                    return prev;
+                }
+
+                targetNode.ratios = newRatios;
+            }
+            return next;
+        });
+    };
+
     const debouncedHandleRatioChange = useMemo(
         () =>
             debounce((path: number[], newRatios: [number, number]) => {
-                setLayout(prev => {
-                    const next = cloneDeep(prev);
-
-                    // Navigate to the target node
-                    let target = next as LayoutNode;
-                    if (path.length === 0) {
-                        // Root node check
-                        if (typeof next === 'string' || !haveRatiosChanged(next.ratios, newRatios)) return prev;
-                        next.ratios = newRatios;
-                    } else {
-                        for (let i = 0; i < path.length - 1; i++) {
-                            target = target.children[path[i]] as LayoutNode;
-                        }
-                        const lastIdx = path[path.length - 1];
-                        const targetNode = target.children[lastIdx] as LayoutNode;
-
-                        // GUARD: If ratios haven't really changed, return previous state object
-                        // returning 'prev' (the same reference) prevents a React re-render
-                        if (typeof targetNode === "string" || !haveRatiosChanged(targetNode.ratios, newRatios)) {
-                            return prev;
-                        }
-
-                        targetNode.ratios = newRatios;
-                    }
-                    return next;
-                });
+                instantHandleRatioChange(path, newRatios);
             }, 100),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         []
     );
     const handleRatioChange = (resizedLayout: ResizedLayout) => {
@@ -191,6 +195,7 @@ const App: React.FC = () => {
             ratios: [50, 50],
             children: [currentLeaf, currentLeaf]
         }));
+        renderLayout(layout, figsize); // without debounce
     };
 
     const handleDelete = (path: number[]) => {
@@ -349,7 +354,12 @@ const App: React.FC = () => {
                 <Separator className={cn(
                     "bg-slate-200 hover:bg-blue-400 transition-colors",
                     node.orient === "row" ? "w-1" : "h-1"
-                )} />
+                )}
+                    onDoubleClick={() => {
+                        instantHandleRatioChange(path, [50, 50], true); // also on minimal changed ratios
+                        renderLayout(layout, figsize); // without debounce
+                    }}
+                />
                 <Panel defaultSize={node.ratios[1]} id={pathId + "-1"}>
                     <RecursiveGrid node={node.children[1]} path={[...path, 1]} />
                 </Panel>
