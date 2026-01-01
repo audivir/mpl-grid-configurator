@@ -24,6 +24,7 @@ const STORAGE_KEYS = {
 } as const;
 
 type Orientation = 'row' | 'column';
+type Change = [string, [number, number]] | null;
 type LayoutNode = {
     orient: Orientation;
     children: [Layout, Layout];
@@ -40,6 +41,53 @@ interface ControlButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
     icon: React.ElementType;
     label: string;
     variant?: 'default' | 'danger' | 'success';
+}
+
+/**
+ * Get the layout at the given path.
+ */
+const getLayout = (layout: Layout, path: number[]) => {
+    if (path.length === 0) return layout;
+    if (typeof layout !== 'object') throw new Error('Invalid path: must be object if path is not empty');
+    let target = layout as Layout;
+    for (let i = 0; i < path.length; i++) {
+        if (typeof target !== 'object') throw new Error('Invalid path: must be object if not at end');
+        target = target.children[path[i]];
+    }
+    return target;
+}
+
+/**
+ * Get the node at the given path.
+ */
+const getNode = (layout: Layout, path: number[]) => {
+    const target = getLayout(layout, path);
+    if (typeof target !== 'object') throw new Error('Invalid path: must be object at end');
+    return target;
+}
+
+/**
+ * Get the leaf at the given path.
+ */
+const getLeaf = (layout: Layout, path: number[]) => {
+    const target = getLayout(layout, path);
+    if (typeof target !== 'string') throw new Error('Invalid path: must be string at end');
+    return target;
+}
+
+/**
+ * Set the node at the given path.
+ */
+const setNode = (layout: LayoutNode, path: number[], val: Layout) => {
+    if (typeof layout === 'string') throw new Error('Invalid layout: cant set at string');
+    if (path.length === 0) throw new Error('Invalid path: path must be non-empty');
+    let target = layout;
+    for (let i = 0; i < path.length - 1; i++) {
+        let child = target.children[path[i]];
+        if (typeof child === 'string') throw new Error('Invalid path: must be object every step');
+        target = child;
+    }
+    target.children[path[path.length - 1]] = val;
 }
 
 const ControlButton = ({ icon: Icon, label, variant = 'default', className, ...props }: ControlButtonProps) => {
@@ -84,6 +132,9 @@ const App: React.FC = () => {
         return saved ? JSON.parse(saved) : "draw_empty";
     });
 
+    const [rowChange, setRowChange] = useState<Change>(null);
+    const [columnChange, setColumnChange] = useState<Change>(null);
+
     useEffect(() => {
         localStorage.setItem(STORAGE_KEYS.FIGSIZE, JSON.stringify(figsize));
     }, [figsize]);
@@ -125,68 +176,69 @@ const App: React.FC = () => {
     const updateAtSubPath = useCallback((path: number[], updater: (node: Layout) => Layout) => {
         setLayout(prev => {
             const next = cloneDeep(prev);
+            // if root, set root
             if (path.length === 0) return updater(next);
-
-            let target = next as LayoutNode;
-            for (let i = 0; i < path.length - 1; i++) {
-                target = target.children[path[i]] as LayoutNode;
-            }
-            const lastIdx = path[path.length - 1];
-            target.children[lastIdx] = updater(target.children[lastIdx]);
+            // else, replace node as parent's child
+            const parentPath = path.slice(0, -1);
+            const parentNode = getNode(next, parentPath);
+            const currIx = path[path.length - 1];
+            parentNode.children[currIx] = updater(parentNode.children[currIx]);
             return next;
         });
     }, []);
 
-    const haveRatiosChanged = (oldRatios: [number, number], newRatios: [number, number]) => {
+    const didChange = (oldRatios: [number, number], newRatios: [number, number]) => {
         const EPSILON = 0.01;
         return oldRatios.some((val, idx) => Math.abs(val - newRatios[idx]) > EPSILON);
     };
 
-    const instantHandleRatioChange = (path: number[], newRatios: [number, number], force: boolean = false) => {
+    const debouncedSetRowChange = useMemo(() => debounce(setRowChange, 100), []);
+    const debouncedSetColumnChange = useMemo(() => debounce(setColumnChange, 100), []);
+
+    // follow changes and update layout
+    useEffect(() => {
+        if (!rowChange && !columnChange) return;
+
         setLayout(prev => {
             const next = cloneDeep(prev);
-
-            // Navigate to the target node
-            let target = next as LayoutNode;
-            if (path.length === 0) {
-                // Root node check
-                if (typeof next === 'string' || (!haveRatiosChanged(next.ratios, newRatios) && !force)) return prev;
-                next.ratios = newRatios;
-            } else {
-                for (let i = 0; i < path.length - 1; i++) {
-                    target = target.children[path[i]] as LayoutNode;
-                }
-                const lastIdx = path[path.length - 1];
-                const targetNode = target.children[lastIdx] as LayoutNode;
-
-                // GUARD: If ratios haven't really changed, return previous state object
-                // returning 'prev' (the same reference) prevents a React re-render
-                if (typeof targetNode === "string" || (!haveRatiosChanged(targetNode.ratios, newRatios) && !force)) {
-                    return prev;
-                }
-
-                targetNode.ratios = newRatios;
+            if (rowChange) {
+                const [rowParentPathId, [rowLeftUp, rowRightDown]] = rowChange;
+                const rowParentPath = rowParentPathId.split("-").slice(1).map(Number);
+                const rowParentNode = getNode(next, rowParentPath);
+                rowParentNode.ratios = [rowLeftUp, rowRightDown];
+            }
+            if (columnChange) {
+                const [columnParentPathId, [columnLeftUp, columnRightDown]] = columnChange;
+                const columnParentPath = columnParentPathId.split("-").slice(1).map(Number);
+                const columnParentNode = getNode(next, columnParentPath);
+                columnParentNode.ratios = [columnLeftUp, columnRightDown];
             }
             return next;
         });
-    };
+    }, [rowChange, columnChange]);
 
-    const debouncedHandleRatioChange = useMemo(
-        () =>
-            debounce((path: number[], newRatios: [number, number]) => {
-                instantHandleRatioChange(path, newRatios);
-            }, 100),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        []
-    );
     const handleRatioChange = (resizedLayout: ResizedLayout) => {
-        const path = Object.keys(resizedLayout)[0]
-            .split("-")
-            .slice(1, -1)
-            .map(Number);
-        const [left_up, right_down] = Object.values(resizedLayout);
+        const parentPathId = Object.keys(resizedLayout)[0]
+            .slice(undefined, -2);
+        const parentPath = parentPathId.split("-").slice(1).map(Number);
+        const [leftUp, rightDown] = Object.values(resizedLayout);
+        const parentNode = getNode(layout, parentPath);
 
-        debouncedHandleRatioChange(path, [left_up, right_down])
+        if (!didChange(parentNode.ratios, [leftUp, rightDown])) {
+            return;
+        }
+
+        const prevValue = parentNode.orient === "row" ? rowChange : columnChange;
+        const debouncedSetter = parentNode.orient === "row" ? debouncedSetRowChange : debouncedSetColumnChange;
+
+        if (prevValue) {
+            const [prevLeftUp, prevRightDown] = prevValue[1];
+            if (!didChange([prevLeftUp, prevRightDown], [leftUp, rightDown])) {
+                return;
+            }
+        }
+
+        debouncedSetter([parentPathId, [leftUp, rightDown]]);
     };
 
     const handleSplit = (path: number[], orient: Orientation) => {
@@ -195,57 +247,62 @@ const App: React.FC = () => {
             ratios: [50, 50],
             children: [currentLeaf, currentLeaf]
         }));
-        renderLayout(layout, figsize); // without debounce
     };
 
     const handleDelete = (path: number[]) => {
-        if (path.length === 0) return;
+        if (path.length === 0) throw new Error("Cannot delete root");
+
         const parentPath = path.slice(0, -1);
-        const indexToDelete = path[path.length - 1];
-        const siblingIndex = indexToDelete === 0 ? 1 : 0;
+        const currIx = path[path.length - 1];
+        const parentIx = path[path.length - 2];
+        const siblingIx = currIx === 0 ? 1 : 0;
+        const siblingPath = [...parentPath, siblingIx];
 
         setLayout(prev => {
             const next = cloneDeep(prev);
-            if (parentPath.length === 0) return (next as LayoutNode).children[siblingIndex];
-            let target = next as LayoutNode;
-            for (let i = 0; i < parentPath.length - 1; i++) {
-                target = target.children[parentPath[i]] as LayoutNode;
-            }
-            const lastParentIdx = parentPath[parentPath.length - 1];
-            const siblingNode = (target.children[lastParentIdx] as LayoutNode).children[siblingIndex];
-            target.children[lastParentIdx] = siblingNode;
+            const siblingLeaf = getLeaf(next, siblingPath);
+            // if parent is root, return sibling
+            if (parentPath.length === 0) return siblingLeaf;
+            // else replace parent with sibling
+            const grandparentPath = parentPath.slice(0, -1);
+            const grandparentNode = getNode(next, grandparentPath);
+            grandparentNode.children[parentIx] = siblingLeaf;
             return next;
         });
     };
 
     const handleSwap = (pathIdA: string, pathIdB: string) => {
+        // do nothing if paths are the same
         if (pathIdA === pathIdB) return;
         const pathA = pathIdA.split("-").slice(1).map(Number);
         const pathB = pathIdB.split("-").slice(1).map(Number);
 
         setLayout(prev => {
             const next = cloneDeep(prev);
+            if (typeof next === 'string') throw new Error('Invalid layout: cant swap if only root exists');
 
-            const getAt = (root: Layout, p: number[]) => {
-                let curr = root;
-                for (let i = 0; i < p.length; i++) curr = (curr as LayoutNode).children[p[i]];
-                return curr as string;
-            };
+            const valA = getLeaf(next, pathA);
+            const valB = getLeaf(next, pathB);
 
-            const setAt = (root: Layout, p: number[], val: string) => {
-                if (p.length === 0) return;
-                let curr = root as LayoutNode;
-                for (let i = 0; i < p.length - 1; i++) curr = curr.children[p[i]] as LayoutNode;
-                curr.children[p[p.length - 1]] = val;
-            };
-
-            const valA = cloneDeep(getAt(next, pathA));
-            const valB = cloneDeep(getAt(next, pathB));
-
-            setAt(next, pathA, valB);
-            setAt(next, pathB, valA);
+            setNode(next, pathA, valB);
+            setNode(next, pathB, valA);
             return next;
         });
+    };
+
+    const handleDoubleClick = (parentPathId: string) => {
+        const parentPath = parentPathId.split("-").slice(1).map(Number);
+        const parentNode = getNode(layout, parentPath);
+        if (parentNode.orient === "row") {
+            setRowChange([parentPathId, [50, 50]]);
+        } else {
+            setColumnChange([parentPathId, [50, 50]]);
+        }
+    };
+
+    const handleReset = () => {
+        setLayout("draw_empty");
+        setFigsize({ w: 8, h: 4 });
     };
 
     const copyToClipboard = async (text: string, setter: (v: boolean) => void) => {
@@ -355,10 +412,7 @@ const App: React.FC = () => {
                     "bg-slate-200 hover:bg-blue-400 transition-colors",
                     node.orient === "row" ? "w-1" : "h-1"
                 )}
-                    onDoubleClick={() => {
-                        instantHandleRatioChange(path, [50, 50], true); // also on minimal changed ratios
-                        renderLayout(layout, figsize); // without debounce
-                    }}
+                    onDoubleClick={() => handleDoubleClick(pathId)}
                 />
                 <Panel defaultSize={node.ratios[1]} id={pathId + "-1"}>
                     <RecursiveGrid node={node.children[1]} path={[...path, 1]} />
@@ -449,11 +503,7 @@ const App: React.FC = () => {
                             icon={RotateCcw}
                             label="Reset Layout"
                             variant="danger"
-                            onClick={() => {
-                                if (!window.confirm("Reset all progress?")) return;
-                                setFigsize({ w: 8, h: 4 });
-                                setLayout("draw_empty");
-                            }}
+                            onClick={() => window.confirm("Reset all progress?") && handleReset()}
                         />
                     </div>
                 </section>
