@@ -1,4 +1,4 @@
-"""Connect two touching but not directly connected nodes."""
+"""Merge two touching but not directly connected nodes."""
 
 from __future__ import annotations
 
@@ -14,6 +14,14 @@ if TYPE_CHECKING:
 
 EPSILON = 1e-9
 MIN_TOUCH_RATIO = 0.9
+
+
+class PartitioningError(ValueError):
+    """Partitioning failed to create a node structure."""
+
+
+class MergeError(ValueError):
+    """Invalid leafs selected for merge."""
 
 
 def almost_equal(a: float, b: float) -> bool:
@@ -170,8 +178,8 @@ def are_bboxes_touching(bbox_a: BoundingBox, bbox_b: BoundingBox) -> Orientation
     return children_orient
 
 
-def connect_bboxes(bbox_a: BoundingBox, bbox_b: BoundingBox) -> BoundingBox:
-    """Connect two bounding boxes."""
+def merge_bboxes(bbox_a: BoundingBox, bbox_b: BoundingBox) -> BoundingBox:
+    """Merge two bounding boxes."""
     return BoundingBox(
         min(bbox_a.x_min, bbox_b.x_min),
         max(bbox_a.x_max, bbox_b.x_max),
@@ -248,7 +256,7 @@ def binary_space_partitioning(bbox_mapping: Mapping[str, BoundingBox]) -> Layout
                 bottom_side,
             )
 
-    raise ValueError(
+    raise PartitioningError(
         "Non-guillotine layout detected: No clear horizontal or vertical split possible."
     )
 
@@ -298,24 +306,24 @@ def rectify_bbox(
     return BoundingBox(*new_rect_edge, *curr_edge)
 
 
-def connect_paths(
+def merge_paths(
     root: LayoutNode,
     path_a: tuple[int, ...],
     path_b: tuple[int, ...],
 ) -> LayoutNode:
-    """Connect two non-sibling, but fully touching leafs by their paths.
+    """Merge two non-sibling, but fully touching leafs by their paths.
 
     Returns:
         The updated layout
 
     Raises:
-        ValueError: If no connected bounding box can be built
+        ValueError: If no merged bounding box can be built
     """
     # sanity checks
     if path_a[:-1] == path_b[:-1]:
         if path_a[-1] == path_b[-1]:
-            raise ValueError("Paths are the same")
-        raise ValueError("Paths are already siblings")
+            raise MergeError("Paths are the same")
+        raise MergeError("Paths are already siblings")
 
     root_with_id = adjust_node_id(root, mode="add")
     lca, lca_path, adj_path_a, adj_path_b = get_lca(root_with_id, path_a, path_b)
@@ -330,7 +338,7 @@ def connect_paths(
     orient = are_bboxes_touching(bbox_a, bbox_b)
 
     if orient is None:
-        raise ValueError(
+        raise MergeError(
             f"Bounding boxes must touch and overlap at least {int(100 * MIN_TOUCH_RATIO)} %."
         )
 
@@ -341,7 +349,7 @@ def connect_paths(
     # Update the local copies of A and B from the rectified mapping
     rect_bbox_a = rectified_mapping[leaf_a]
     rect_bbox_b = rectified_mapping[leaf_b]
-    connected_bbox = connect_bboxes(rect_bbox_a, rect_bbox_b)
+    merged_bbox = merge_bboxes(rect_bbox_a, rect_bbox_b)
 
     # Use the RECTIFIED mapping for the partitioner
     adj_bbox_map = dict(rectified_mapping)
@@ -351,9 +359,13 @@ def connect_paths(
     # Create a unique ID for the merged node placeholder
     node_id = str(uuid.uuid4())
     merged_key = f"{node_id}:::{node_id}"
-    adj_bbox_map[merged_key] = connected_bbox
+    adj_bbox_map[merged_key] = merged_bbox
 
-    partitioned_lca = binary_space_partitioning(adj_bbox_map)
+    try:
+        partitioned_lca = binary_space_partitioning(adj_bbox_map)
+    except PartitioningError as e:
+        raise MergeError(*e.args) from e
+
     if isinstance(partitioned_lca, str):
         raise ValueError("Partitioning failed to create a node structure.")  # noqa: TRY004
 

@@ -4,7 +4,7 @@ import io
 import logging
 from pathlib import Path
 
-from mpl_grid_configurator.connect import connect_paths
+from mpl_grid_configurator.merge import MergeError, merge_paths
 from mpl_grid_configurator.register import DRAW_FUNCS, register
 from mpl_grid_configurator.render import draw_empty, render_layout
 from mpl_grid_configurator.types import LayoutData, LayoutResponse, SVGResponse
@@ -54,10 +54,12 @@ async def merge_api(
         raise HTTPException(status_code=400, detail="Cannot merge leaf")
 
     try:
-        new_layout = connect_paths(layout, path_a, path_b)
+        new_layout = merge_paths(layout, path_a, path_b)
+    except MergeError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logger.exception("Error during merge")
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
     else:
         svg = await render_api({"layout": new_layout, "figsize": layout_data["figsize"]})
 

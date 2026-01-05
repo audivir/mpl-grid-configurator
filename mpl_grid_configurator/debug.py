@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator, Mapping
 from typing import TYPE_CHECKING
 
-from mpl_grid_configurator.connect import almost_equal, find_path_by_id
+from mpl_grid_configurator.merge import almost_equal, find_path_by_id
 from mpl_grid_configurator.render import render_recursive
 
 if TYPE_CHECKING:
