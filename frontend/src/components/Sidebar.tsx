@@ -18,6 +18,8 @@ interface SidebarProps {
   setLayout: (v: SetStateAction<Layout>) => void;
   figsize: FigSize;
   setFigsize: (v: SetStateAction<FigSize>) => void;
+  zoom: number;
+  setZoom: (v: SetStateAction<number>) => void;
   showOverlay: boolean;
   setShowOverlay: (v: SetStateAction<boolean>) => void;
   handleReset: () => void;
@@ -30,6 +32,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   setLayout,
   figsize,
   setFigsize,
+  zoom,
+  setZoom,
   showOverlay,
   setShowOverlay,
   handleReset,
@@ -48,14 +52,39 @@ const Sidebar: React.FC<SidebarProps> = ({
     >
       <header className="flex items-center gap-3 mb-8 pb-4 border-b border-slate-700">
         <Settings size={18} className="text-blue-400" />
-        <h3 className="font-bold text-xs tracking-widest uppercase text-slate-300">
+        <h3 className="font-bold text-md tracking-widest uppercase text-slate-300">
           MPL GRID
         </h3>
       </header>
 
       <section className="space-y-6">
-        <div className="space-y-4">
-          <div className="flex justify-between text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+        <div className="flex justify-between items-center">
+          <button
+            onClick={() => setZoom((z) => Math.max(0.2, z - 0.1))}
+            className="w-8 h-8 items-center justify-center hover:bg-slate-700 rounded text-lg"
+          >
+            -
+          </button>
+          <span className="text-sm font-mono w-10 text-center text-slate-400 font-bold">
+            {Math.round(zoom * 100)}%
+          </span>
+          <button
+            onClick={() => setZoom((z) => Math.min(3, z + 0.1))}
+            className="w-8 h-8 items-center justify-center hover:bg-slate-700 rounded text-lg"
+          >
+            +
+          </button>
+          <div className="w-px h-4 bg-slate-700 mx-1" />
+          <button
+            onClick={() => setZoom(1)}
+            className="px-2 text-sm font-bold text-blue-400 hover:text-blue-300"
+          >
+            RESET
+          </button>
+        </div>
+
+        <div className="pt-4 border-t border-slate-700/50 space-y-4">
+          <div className="flex justify-between text-xs text-slate-500 font-bold uppercase tracking-wider">
             <span>Width</span>
             <span className="text-blue-400">{figsize.w}</span>
           </div>
@@ -71,7 +100,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
           />
 
-          <div className="flex justify-between text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+          <div className="flex justify-between text-xs text-slate-500 font-bold uppercase tracking-wider">
             <span>Height</span>
             <span className="text-blue-400">{figsize.h}</span>
           </div>

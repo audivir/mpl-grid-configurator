@@ -15,7 +15,7 @@ const STORAGE_KEYS = {
 } as const;
 
 const App: React.FC = () => {
-  const [availableFuncs, setAvailableFuncs] = useState<string[]>([]);
+  const [funcs, setFuncs] = useState<string[]>([]);
   const [svgContent, setSvgContent] = useState<string>("");
   const [showOverlay, setShowOverlay] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -63,10 +63,9 @@ const App: React.FC = () => {
     fetch(`${API_BASE}/functions`)
       .then((r) => r.json())
       .then((data) => {
-        setAvailableFuncs(data);
+        setFuncs(data);
       })
       .catch((err) => console.error("Could not fetch functions:", err));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -81,6 +80,8 @@ const App: React.FC = () => {
         setLayout={setLayout}
         figsize={figsize}
         setFigsize={setFigsize}
+        zoom={zoom}
+        setZoom={setZoom}
         showOverlay={showOverlay}
         setShowOverlay={setShowOverlay}
         handleReset={() => {
@@ -96,8 +97,6 @@ const App: React.FC = () => {
           <FloatingControls
             sidebarOpen={sidebarOpen}
             setSidebarOpen={setSidebarOpen}
-            zoom={zoom}
-            setZoom={setZoom}
           />
         )}
 
@@ -122,7 +121,7 @@ const App: React.FC = () => {
                 <GridOverlay
                   layout={layout}
                   setLayout={setLayout}
-                  funcs={availableFuncs}
+                  funcs={funcs}
                   zoom={zoom}
                   resizeDebounce={RESIZE_DEBOUNCE}
                 />
