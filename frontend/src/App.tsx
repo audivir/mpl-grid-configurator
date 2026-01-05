@@ -59,6 +59,33 @@ const App: React.FC = () => {
     []
   );
 
+  const mergeCallback = async (
+    l: Layout,
+    fs: FigSize,
+    p_a: string,
+    p_b: string
+  ) => {
+    try {
+      const l_d = { layout: l, figsize: [fs.w, fs.h] };
+      const response = await fetch(`${API_BASE}/merge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          layout_data: l_d,
+          path_a: p_a.split("-").slice(1).map(Number),
+          path_b: p_b.split("-").slice(1).map(Number),
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setLayout(data.layout);
+        setSvgContent(data.svg);
+      }
+    } catch (e) {
+      console.error("Merging failed:", e);
+    }
+  };
+
   useEffect(() => {
     fetch(`${API_BASE}/functions`)
       .then((r) => r.json())
@@ -121,9 +148,11 @@ const App: React.FC = () => {
                 <GridOverlay
                   layout={layout}
                   setLayout={setLayout}
+                  figsize={figsize}
                   funcs={funcs}
                   zoom={zoom}
                   resizeDebounce={RESIZE_DEBOUNCE}
+                  mergeCallback={mergeCallback}
                 />
               </div>
             )}

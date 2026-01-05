@@ -3,8 +3,18 @@
 from __future__ import annotations
 
 import inspect
-from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, ForwardRef, Literal, TypeAlias, TypeVar, get_origin
+from collections.abc import Callable, Iterator, MutableMapping
+from dataclasses import dataclass
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ForwardRef,
+    Literal,
+    NamedTuple,
+    TypeAlias,
+    TypeVar,
+    get_origin,
+)
 
 from doctyper._typing import eval_type
 from typing_extensions import TypedDict, TypeIs
@@ -21,15 +31,18 @@ StrDrawFunc: TypeAlias = Callable[[], str]
 DrawFunc: TypeAlias = "AxesDrawFunc | TupleDrawFunc | StrDrawFunc"
 DrawFuncT = TypeVar("DrawFuncT", bound=DrawFunc)
 
+Orientation: TypeAlias = Literal["row", "column"]
+
 
 class LayoutNode(TypedDict):
     """Node for the layout."""
 
-    orient: Literal["row", "column"]
+    orient: Orientation
     children: tuple[LayoutNode | str, LayoutNode | str]
     ratios: tuple[float, float]
 
 
+LayoutT = TypeVar("LayoutT", LayoutNode, str)
 Layout: TypeAlias = LayoutNode | str
 
 
@@ -44,6 +57,48 @@ class SVGResponse(TypedDict):
     """SVG response."""
 
     svg: str
+
+
+class LayoutResponse(TypedDict):
+    """Layout response."""
+
+    layout: Layout
+
+
+@dataclass
+class Edge:
+    """Edge of a rectangle (min, max)."""
+
+    min: float
+    max: float
+
+    def __iter__(self) -> Iterator[float]:
+        yield self.min
+        yield self.max
+
+    @property
+    def size(self) -> float:
+        """Size of the edge."""
+        return self.max - self.min
+
+
+class BoundingBox(NamedTuple):
+    """Bounding box of a rectangle (x_min, x_max, y_min, y_max)."""
+
+    x_min: float
+    x_max: float
+    y_min: float
+    y_max: float
+
+
+BoundingBoxMappingT = TypeVar("BoundingBoxMappingT", bound=MutableMapping[str, BoundingBox])
+
+
+class Touch(NamedTuple):
+    """Touching edges (orient, full)."""
+
+    orient: Orientation
+    touch_ratio: float
 
 
 def is_tuple_draw_func(func: DrawFuncT) -> TypeIs[TupleDrawFunc]:  # type: ignore[narrowed-type-not-subtype]

@@ -3,16 +3,21 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Literal, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
-from mpl_grid_configurator.types import Layout, LayoutNode, is_str_draw_func, is_tuple_draw_func
+from mpl_grid_configurator.types import (
+    Layout,
+    LayoutNode,
+    Orientation,
+    is_str_draw_func,
+    is_tuple_draw_func,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, MutableMapping
 
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure, SubFigure
-__version__ = "0.2.1"
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +27,7 @@ T = TypeVar("T")
 
 def split_figure(
     container: Figure | SubFigure,
-    orient: Literal["row", "column"],
+    orient: Orientation,
     ratios: tuple[float, float],
 ) -> tuple[SubFigure, SubFigure]:
     """Split a figure into two subfigures with the given ratios and orientation."""

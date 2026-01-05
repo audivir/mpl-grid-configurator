@@ -4,9 +4,10 @@ import io
 import logging
 from pathlib import Path
 
+from mpl_grid_configurator.connect import connect_paths
 from mpl_grid_configurator.register import DRAW_FUNCS, register
 from mpl_grid_configurator.render import draw_empty, render_layout
-from mpl_grid_configurator.types import LayoutData, SVGResponse
+from mpl_grid_configurator.types import LayoutData, LayoutResponse, SVGResponse
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,31 @@ async def render_api(layout_data: LayoutData) -> SVGResponse:
         return {"svg": fixed_svg}
 
 
+class FullResponse(LayoutResponse, SVGResponse):
+    """Response containing both layout and svg."""
+
+
+async def merge_api(
+    layout_data: LayoutData, path_a: tuple[int, ...], path_b: tuple[int, ...]
+) -> FullResponse:
+    """Merge two paths."""
+    from fastapi import HTTPException
+
+    layout = layout_data["layout"]
+    if isinstance(layout, str):
+        raise HTTPException(status_code=400, detail="Root cannot be merged")
+
+    try:
+        new_layout = connect_paths(layout, path_a, path_b)
+    except Exception as e:
+        logger.exception("Error during merge")
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    else:
+        svg = await render_api({"layout": new_layout, "figsize": layout_data["figsize"]})
+
+    return {"layout": new_layout, "svg": svg["svg"]}
+
+
 def start_app(port: int = 8000) -> None:
     """Start the backend and the frontend."""
     import threading
@@ -60,6 +86,7 @@ def start_app(port: int = 8000) -> None:
 
     backend_app.get("/functions")(get_functions)
     backend_app.post("/render")(render_api)
+    backend_app.post("/merge")(merge_api)
 
     if draw_empty not in DRAW_FUNCS.values():
         register(draw_empty)

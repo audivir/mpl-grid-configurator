@@ -1,6 +1,6 @@
 import { useState, SetStateAction } from "react";
 import { cn } from "react-lib-tools";
-import { Layout } from "../lib/layout";
+import { FigSize, Layout } from "../lib/layout";
 import { Columns, Rows, Grip, Trash2, Merge } from "lucide-react";
 import { Group, Panel, Separator } from "react-resizable-panels";
 import gridCallbacks from "../lib/callbacks";
@@ -8,9 +8,11 @@ import gridCallbacks from "../lib/callbacks";
 interface GridOverlayProps {
   layout: Layout;
   setLayout: (v: SetStateAction<Layout>) => void;
+  figsize: FigSize;
   zoom: number;
   funcs: string[];
   resizeDebounce: number;
+  mergeCallback: (l: Layout, fs: FigSize, p_a: string, p_b: string) => void;
 }
 
 interface RecursiveGridProps {
@@ -45,9 +47,11 @@ const DragButton: React.FC<DragButtonProps> = ({
 const GridOverlay: React.FC<GridOverlayProps> = ({
   layout,
   setLayout,
+  figsize,
   zoom,
   funcs,
   resizeDebounce,
+  mergeCallback,
 }) => {
   const [swapPathId, setSwapPathId] = useState<string | null>(null);
   const [mergePathId, setMergePathId] = useState<string | null>(null);
@@ -82,7 +86,8 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
             if (swapPathId && mergePathId)
               throw new Error("Cannot swap and merge at the same time");
             if (swapPathId) handleSwap(swapPathId, pathId);
-            if (mergePathId) handleMerge(mergePathId, pathId);
+            if (mergePathId)
+              mergeCallback(layout, figsize, mergePathId, pathId);
           }}
           className={cn(
             "relative w-full h-full border border-blue-500/10 transition-all group pointer-events-auto",
