@@ -12,8 +12,10 @@ import {
   Undo2,
   ChevronRight,
   ChevronLeft,
+  Pin,
+  PinOff,
 } from "lucide-react";
-import { SetStateAction, useState } from "react";
+import { SetStateAction, useRef, useState } from "react";
 import ControlButton from "./ControlButton";
 import { copyContentToClipboard, downloadContent } from "../lib/content";
 
@@ -71,6 +73,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [configCopied, setConfigCopied] = useState(false);
   const [svgCopied, setSvgCopied] = useState(false);
   const [svgDownloaded, setSvgDownloaded] = useState(false);
@@ -81,6 +84,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div
           onMouseEnter={() => {
             if (!sidebarOpen) {
+              if (closeTimeoutRef.current)
+                clearTimeout(closeTimeoutRef.current);
               setSidebarOpen(true);
               setIsPinned(false);
             }
@@ -91,17 +96,30 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div
         className="relative h-full flex shrink-0"
         onClick={() => setIsPinned(true)}
+        onMouseEnter={() => {
+          if (closeTimeoutRef.current) {
+            clearTimeout(closeTimeoutRef.current);
+            closeTimeoutRef.current = null;
+          }
+        }}
         onMouseLeave={() => {
           if (!isPinned) {
-            setSidebarOpen(false);
+            closeTimeoutRef.current = setTimeout(() => {
+              // Check if mouse is still outside (you'd need a ref for this)
+              setSidebarOpen(false);
+            }, 400);
           }
         }}
       >
         {/* THE ACTUAL SIDEBAR */}
         <aside
           className={cn(
-            "bg-[#1e293b] border-r border-slate-700 transition-all duration-300 ease-in-out shrink-0 overflow-y-auto",
-            !sidebarOpen ? "w-0 p-0 opacity-0" : "w-[280px] p-6"
+            "bg-[#1e293b] border-r border-slate-700 transition-all duration-300 ease-in-out h-full overflow-y-auto relative z-50",
+            !sidebarOpen ? "w-0 p-0 opacity-0" : "w-[280px] p-6 opacity-100",
+            // Add a glowing right border if peeking (not pinned)
+            !isPinned &&
+              sidebarOpen &&
+              "border-r-2 border-r-blue-500/50 shadow-[4px_0_24px_rgba(0,0,0,0.5)]"
           )}
         >
           <header className="flex items-center justify-between mb-8 pb-4 border-b border-slate-700">
@@ -112,16 +130,44 @@ const Sidebar: React.FC<SidebarProps> = ({
               </h3>
             </div>
 
-            {/* Internal Collapse Button */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation(); // Prevent the parent onClick from pinning
-                setSidebarOpen(false);
-              }}
-              className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors"
-            >
-              <ChevronLeft size={20} />
-            </button>
+            <div className="flex items-center gap-1">
+              {/* Pin Toggle Button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsPinned(!isPinned);
+                }}
+                className={cn(
+                  "p-1.5 rounded transition-all",
+                  isPinned
+                    ? "text-blue-400 bg-blue-500/10 hover:bg-blue-500/20"
+                    : "text-slate-500 hover:text-slate-300 hover:bg-slate-700"
+                )}
+                title={
+                  isPinned
+                    ? "Unpin sidebar (auto-hide)"
+                    : "Pin sidebar (stay open)"
+                }
+              >
+                {isPinned ? (
+                  <Pin size={16} fill="currentColor" />
+                ) : (
+                  <PinOff size={16} />
+                )}
+              </button>
+
+              {/* Manual Collapse Button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSidebarOpen(false);
+                }}
+                className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-700 rounded transition-all"
+                title="Collapse Sidebar"
+              >
+                <ChevronLeft size={20} />
+              </button>
+            </div>
           </header>
 
           <section className="space-y-6">
