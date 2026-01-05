@@ -7,6 +7,8 @@ import {
   ClipboardCopy,
   Check,
   Import,
+  Redo2,
+  Undo2,
 } from "lucide-react";
 import { SetStateAction, useState } from "react";
 import ControlButton from "./ControlButton";
@@ -15,29 +17,39 @@ import { copyContentToClipboard, downloadContent } from "../lib/content";
 interface SidebarProps {
   collapsed: boolean;
   layout: Layout;
-  setLayout: (v: SetStateAction<Layout>) => void;
   figsize: FigSize;
-  setFigsize: (v: SetStateAction<FigSize>) => void;
+  figsizePreview: FigSize;
+  setFigsizePreview: (v: SetStateAction<FigSize>) => void;
+  commitFigsize: () => void;
   zoom: number;
   setZoom: (v: SetStateAction<number>) => void;
   showOverlay: boolean;
   setShowOverlay: (v: SetStateAction<boolean>) => void;
-  handleReset: () => void;
+  handleReset: (l: Layout, fs: FigSize) => void;
   svgContent: string;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
   collapsed,
   layout,
-  setLayout,
   figsize,
-  setFigsize,
+  figsizePreview,
+  setFigsizePreview,
+  commitFigsize,
   zoom,
   setZoom,
   showOverlay,
   setShowOverlay,
   handleReset,
   svgContent,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
 }) => {
   const [configCopied, setConfigCopied] = useState(false);
   const [svgCopied, setSvgCopied] = useState(false);
@@ -58,7 +70,34 @@ const Sidebar: React.FC<SidebarProps> = ({
       </header>
 
       <section className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={onUndo}
+            disabled={!canUndo}
+            className={cn(
+              "flex items-center justify-center gap-2 py-2 rounded border transition-all text-xs font-bold",
+              canUndo
+                ? "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
+                : "bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed opacity-50"
+            )}
+          >
+            <Undo2 size={14} /> UNDO
+          </button>
+          <button
+            onClick={onRedo}
+            disabled={!canRedo}
+            className={cn(
+              "flex items-center justify-center gap-2 py-2 rounded border transition-all text-xs font-bold",
+              canRedo
+                ? "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
+                : "bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed opacity-50"
+            )}
+          >
+            REDO <Redo2 size={14} />
+          </button>
+        </div>
+
+        <div className="pt-4 border-t border-slate-700/50 flex justify-between items-center">
           <button
             onClick={() => setZoom((z) => Math.max(0.2, z - 0.1))}
             className="w-8 h-8 items-center justify-center hover:bg-slate-700 rounded text-lg"
@@ -86,33 +125,37 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="pt-4 border-t border-slate-700/50 space-y-4">
           <div className="flex justify-between text-xs text-slate-500 font-bold uppercase tracking-wider">
             <span>Width</span>
-            <span className="text-blue-400">{figsize.w}</span>
+            <span className="text-blue-400">{figsizePreview.w}</span>
           </div>
           <input
             type="range"
             min="4"
             max="24"
             step="0.5"
-            value={figsize.w}
-            onChange={(e) =>
-              setFigsize((prev) => ({ ...prev, w: +e.target.value }))
-            }
+            value={figsizePreview.w}
+            onChange={(e) => {
+              setFigsizePreview((prev) => ({ ...prev, w: +e.target.value }));
+            }}
+            onMouseUp={commitFigsize}
+            onKeyUp={commitFigsize}
             className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
           />
 
           <div className="flex justify-between text-xs text-slate-500 font-bold uppercase tracking-wider">
             <span>Height</span>
-            <span className="text-blue-400">{figsize.h}</span>
+            <span className="text-blue-400">{figsizePreview.h}</span>
           </div>
           <input
             type="range"
             min="2"
             max="18"
             step="0.5"
-            value={figsize.h}
+            value={figsizePreview.h}
             onChange={(e) =>
-              setFigsize((prev) => ({ ...prev, h: +e.target.value }))
+              setFigsizePreview((prev) => ({ ...prev, h: +e.target.value }))
             }
+            onMouseUp={commitFigsize}
+            onKeyUp={commitFigsize}
             className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
           />
         </div>
@@ -148,8 +191,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               if (raw) {
                 try {
                   const p = JSON.parse(raw);
-                  setLayout(p.layout);
-                  setFigsize(p.figsize);
+                  handleReset(p.layout, p.figsize);
                 } catch {
                   alert("Invalid JSON");
                 }
@@ -183,7 +225,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             label="Reset Layout"
             variant="danger"
             onClick={() =>
-              window.confirm("Reset all progress?") && handleReset()
+              window.confirm("Reset all progress?") &&
+              handleReset("draw_empty", { w: 8, h: 4 })
             }
           />
         </div>

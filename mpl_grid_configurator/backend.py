@@ -51,7 +51,7 @@ async def merge_api(
 
     layout = layout_data["layout"]
     if isinstance(layout, str):
-        raise HTTPException(status_code=400, detail="Root cannot be merged")
+        raise HTTPException(status_code=400, detail="Cannot merge leaf")
 
     try:
         new_layout = connect_paths(layout, path_a, path_b)

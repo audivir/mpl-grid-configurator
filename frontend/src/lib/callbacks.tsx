@@ -94,6 +94,10 @@ const useGridCallbacks = ({
       }
       return next;
     });
+
+    // reset resize states
+    setColumnResize(null);
+    setRowResize(null);
   }, [rowResize, columnResize, setLayout]);
 
   const handleResize = (resizedLayout: ResizedLayout) => {
@@ -133,10 +137,6 @@ const useGridCallbacks = ({
     }));
   };
 
-  const handleMerge = (pathIdA: string, pathIdB: string) => {
-    console.log("merge", pathIdA, pathIdB);
-  };
-
   const handleDelete = (path: number[]) => {
     if (path.length === 0) throw new Error("Cannot delete root");
 
@@ -148,7 +148,7 @@ const useGridCallbacks = ({
 
     setLayout((prev) => {
       const next = cloneDeep(prev);
-      const siblingLeaf = getLeaf(next, siblingPath);
+      const siblingLeaf = getNode(next, siblingPath);
       // if parent is root, return sibling
       if (parentPath.length === 0) return siblingLeaf;
       // else replace parent with sibling
@@ -193,7 +193,6 @@ const useGridCallbacks = ({
     handleResize,
     handleLeaf,
     handleSplit,
-    handleMerge,
     handleDelete,
     handleSwap,
     handleSnapback,

@@ -6,13 +6,13 @@ import { Group, Panel, Separator } from "react-resizable-panels";
 import gridCallbacks from "../lib/callbacks";
 
 interface GridOverlayProps {
+  setPresent: (l: Layout, fs: FigSize) => void;
   layout: Layout;
-  setLayout: (v: SetStateAction<Layout>) => void;
   figsize: FigSize;
   zoom: number;
   funcs: string[];
   resizeDebounce: number;
-  mergeCallback: (l: Layout, fs: FigSize, p_a: string, p_b: string) => void;
+  mergeCallback: (p_a: string, p_b: string) => void;
 }
 
 interface RecursiveGridProps {
@@ -40,13 +40,14 @@ const DragButton: React.FC<DragButtonProps> = ({
       }}
       onDragEnd={() => setter(null)}
     >
-      <Icon size={12} />
+      <Icon size={14} />
     </button>
   );
 };
+
 const GridOverlay: React.FC<GridOverlayProps> = ({
+  setPresent,
   layout,
-  setLayout,
   figsize,
   zoom,
   funcs,
@@ -56,9 +57,13 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
   const [swapPathId, setSwapPathId] = useState<string | null>(null);
   const [mergePathId, setMergePathId] = useState<string | null>(null);
 
+  const setLayout = (next: SetStateAction<Layout>) => {
+    const value = typeof next === "function" ? next(layout) : next;
+    setPresent(value, figsize);
+  };
+
   const {
     handleSwap,
-    handleMerge,
     handleSplit,
     handleLeaf,
     handleDelete,
@@ -86,8 +91,7 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
             if (swapPathId && mergePathId)
               throw new Error("Cannot swap and merge at the same time");
             if (swapPathId) handleSwap(swapPathId, pathId);
-            if (mergePathId)
-              mergeCallback(layout, figsize, mergePathId, pathId);
+            if (mergePathId) mergeCallback(mergePathId, pathId);
           }}
           className={cn(
             "relative w-full h-full border border-blue-500/10 transition-all group pointer-events-auto",
@@ -144,7 +148,7 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
                   className="p-1 text-red-400 hover:text-red-600"
                   onClick={() => handleDelete(path)}
                 >
-                  <Trash2 size={12} />
+                  <Trash2 size={14} />
                 </button>
               )}
             </div>

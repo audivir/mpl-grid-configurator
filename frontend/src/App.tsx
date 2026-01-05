@@ -2,17 +2,19 @@ import React, { useState, useEffect, useMemo } from "react";
 import { debounce } from "lodash";
 import GridOverlay from "./components/GridOverlay";
 import Sidebar from "./components/Sidebar";
-import { Layout, FigSize } from "./lib/layout";
 import FloatingControls from "./components/FloatingControls";
-
-const API_BASE = "http://localhost:8765";
-const DEFAULT_DPI = 96;
-const RESIZE_DEBOUNCE = 50;
-const RENDER_DEBOUNCE = 150;
-const STORAGE_KEYS = {
-  LAYOUT: "plot-layout-v1",
-  FIGSIZE: "plot-figsize-v1",
-} as const;
+import PreviewOverlay from "./components/PreviewOverlay";
+import { Layout, FigSize } from "./lib/layout";
+import { useHistory } from "./lib/history";
+import {
+  STORAGE_KEYS,
+  DEFAULT_LAYOUT,
+  DEFAULT_FIGSIZE,
+  API_BASE,
+  DEFAULT_DPI,
+  RENDER_DEBOUNCE,
+  RESIZE_DEBOUNCE,
+} from "./lib/const";
 
 const App: React.FC = () => {
   const [funcs, setFuncs] = useState<string[]>([]);
@@ -21,23 +23,27 @@ const App: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [zoom, setZoom] = useState(1);
 
-  const [figsize, setFigsize] = useState<FigSize>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.FIGSIZE);
-    return saved ? JSON.parse(saved) : { w: 8, h: 4 };
-  });
+  const { state, setPresent, undo, redo, canUndo, canRedo, resetHistory } =
+    useHistory(
+      localStorage.getItem(STORAGE_KEYS.LAYOUT)
+        ? JSON.parse(localStorage.getItem(STORAGE_KEYS.LAYOUT)!)
+        : DEFAULT_LAYOUT,
+      localStorage.getItem(STORAGE_KEYS.FIGSIZE)
+        ? JSON.parse(localStorage.getItem(STORAGE_KEYS.FIGSIZE)!)
+        : DEFAULT_FIGSIZE
+    );
 
-  const [layout, setLayout] = useState<Layout>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.LAYOUT);
-    return saved ? JSON.parse(saved) : "draw_empty";
-  });
+  const { layout, figsize } = state;
+  const [figsizePreview, setFigsizePreview] = useState<FigSize>(figsize);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.FIGSIZE, JSON.stringify(figsize));
-  }, [figsize]);
+    localStorage.setItem(STORAGE_KEYS.LAYOUT, JSON.stringify(layout));
+  }, [layout, figsize]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.LAYOUT, JSON.stringify(layout));
-  }, [layout]);
+    setFigsizePreview(figsize);
+  }, [figsize]);
 
   const renderLayout = useMemo(
     () =>
@@ -59,26 +65,21 @@ const App: React.FC = () => {
     []
   );
 
-  const mergeCallback = async (
-    l: Layout,
-    fs: FigSize,
-    p_a: string,
-    p_b: string
-  ) => {
+  const mergeCallback = async (p_a: string, p_b: string) => {
     try {
-      const l_d = { layout: l, figsize: [fs.w, fs.h] };
       const response = await fetch(`${API_BASE}/merge`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          layout_data: l_d,
+          layout_data: { layout, figsize: [figsize.w, figsize.h] },
           path_a: p_a.split("-").slice(1).map(Number),
           path_b: p_b.split("-").slice(1).map(Number),
         }),
       });
       if (response.ok) {
         const data = await response.json();
-        setLayout(data.layout);
+        // Update history with the new layout returned from backend
+        setPresent(data.layout, figsize);
         setSvgContent(data.svg);
       }
     } catch (e) {
@@ -89,9 +90,7 @@ const App: React.FC = () => {
   useEffect(() => {
     fetch(`${API_BASE}/functions`)
       .then((r) => r.json())
-      .then((data) => {
-        setFuncs(data);
-      })
+      .then((data) => setFuncs(data))
       .catch((err) => console.error("Could not fetch functions:", err));
   }, []);
 
@@ -104,18 +103,20 @@ const App: React.FC = () => {
       <Sidebar
         collapsed={!sidebarOpen}
         layout={layout}
-        setLayout={setLayout}
         figsize={figsize}
-        setFigsize={setFigsize}
+        figsizePreview={figsizePreview}
+        setFigsizePreview={setFigsizePreview}
+        commitFigsize={() => setPresent(layout, figsizePreview)}
         zoom={zoom}
         setZoom={setZoom}
         showOverlay={showOverlay}
         setShowOverlay={setShowOverlay}
-        handleReset={() => {
-          setLayout("draw_empty");
-          setFigsize({ w: 8, h: 4 });
-        }}
+        handleReset={(l: Layout, fs: FigSize) => resetHistory(l, fs)}
         svgContent={svgContent}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={undo}
+        onRedo={redo}
       />
 
       {/* Workspace Viewport */}
@@ -146,8 +147,8 @@ const App: React.FC = () => {
             {showOverlay && (
               <div className="absolute inset-0 z-10">
                 <GridOverlay
+                  setPresent={setPresent}
                   layout={layout}
-                  setLayout={setLayout}
                   figsize={figsize}
                   funcs={funcs}
                   zoom={zoom}
@@ -156,6 +157,12 @@ const App: React.FC = () => {
                 />
               </div>
             )}
+
+            {showOverlay &&
+              (figsizePreview.w !== figsize.w ||
+                figsizePreview.h !== figsize.h) && ( // During dragging
+                <PreviewOverlay figsize={figsizePreview} dpi={DEFAULT_DPI} />
+              )}
           </div>
         </div>
       </main>
