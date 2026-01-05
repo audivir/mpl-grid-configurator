@@ -62,14 +62,8 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
     setPresent(value, figsize);
   };
 
-  const {
-    handleSwap,
-    handleSplit,
-    handleLeaf,
-    handleDelete,
-    handleResize,
-    handleSnapback,
-  } = gridCallbacks({ layout, setLayout, resizeDebounce });
+  const { handleSwap, handleSplit, handleLeaf, handleDelete, handleResize } =
+    gridCallbacks({ layout, setLayout, resizeDebounce });
 
   const RecursiveGrid: React.FC<RecursiveGridProps> = ({ node, path }) => {
     const [isOver, setIsOver] = useState(false);
@@ -179,7 +173,6 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
             "bg-slate-200 hover:bg-blue-400 transition-colors",
             node.orient === "row" ? "w-1" : "h-1"
           )}
-          onDoubleClick={() => handleSnapback(pathId)}
         />
         <Panel defaultSize={node.ratios[1]} id={pathId + "-1"}>
           <RecursiveGrid node={node.children[1]} path={[...path, 1]} />

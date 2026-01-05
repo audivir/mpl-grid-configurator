@@ -1,14 +1,14 @@
 import React from "react";
 import { FigSize } from "../lib/layout";
+import { DEFAULT_DPI } from "../lib/const";
 
 interface PreviewOverlayProps {
   figsize: FigSize;
-  dpi: number;
 }
 
-const PreviewOverlay: React.FC<PreviewOverlayProps> = ({ figsize, dpi }) => {
-  const width = `${figsize.w * dpi}px`;
-  const height = `${figsize.h * dpi}px`;
+const PreviewOverlay: React.FC<PreviewOverlayProps> = ({ figsize }) => {
+  const width = `${figsize.w * DEFAULT_DPI}px`;
+  const height = `${figsize.h * DEFAULT_DPI}px`;
 
   return (
     <div

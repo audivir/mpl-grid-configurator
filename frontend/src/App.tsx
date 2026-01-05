@@ -79,7 +79,7 @@ const App: React.FC = () => {
 
   return (
     <>
-      <Toaster theme="dark" position="bottom-right" expand={false} richColors />
+      <Toaster theme="dark" position="top-right" expand={false} richColors />
       <div className="flex w-screen h-screen bg-[#0f172a] text-[#f1f5f9] font-sans overflow-hidden select-none">
         <Sidebar
           layout={layout}
@@ -135,7 +135,7 @@ const App: React.FC = () => {
               {showOverlay &&
                 (figsizePreview.w !== figsize.w ||
                   figsizePreview.h !== figsize.h) && ( // During dragging
-                  <PreviewOverlay figsize={figsizePreview} dpi={DEFAULT_DPI} />
+                  <PreviewOverlay figsize={figsizePreview} />
                 )}
             </div>
           </div>

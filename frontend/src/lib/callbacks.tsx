@@ -180,23 +180,12 @@ const useGridCallbacks = ({
     });
   };
 
-  const handleSnapback = (parentPathId: string) => {
-    const parentPath = parentPathId.split("-").slice(1).map(Number);
-    const parentNode = getNode(layout, parentPath);
-    if (parentNode.orient === "row") {
-      setRowResize([parentPathId, [50, 50]]);
-    } else {
-      setColumnResize([parentPathId, [50, 50]]);
-    }
-  };
-
   return {
     handleResize,
     handleLeaf,
     handleSplit,
     handleDelete,
     handleSwap,
-    handleSnapback,
   };
 };
 
