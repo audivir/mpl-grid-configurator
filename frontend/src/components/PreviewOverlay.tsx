@@ -1,6 +1,6 @@
 import React from "react";
-import { FigSize } from "../lib/layout";
 import { DEFAULT_DPI } from "../lib/const";
+import { FigSize } from "../lib/layout";
 
 interface PreviewOverlayProps {
   figsize: FigSize;

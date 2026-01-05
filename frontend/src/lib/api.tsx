@@ -16,7 +16,7 @@ const getErrorMessage = async (response: Response): Promise<string> => {
 };
 
 /**
- * Core API wrapper with automatic error toasting
+ * Backend API wrapper with forwarding errors to toast
  */
 async function apiFetch<T>(
   endpoint: string,
@@ -48,7 +48,7 @@ async function apiFetch<T>(
 }
 
 /**
- * Domain-specific API calls
+ * API calls to backend
  */
 export const api = {
   getFunctions: () => apiFetch<string[]>("/functions", { method: "GET" }),

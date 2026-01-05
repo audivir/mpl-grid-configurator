@@ -13,7 +13,7 @@ export interface FigSize {
 }
 
 /**
- * Get the layout at the given path.
+ * Get the leaf or node at the given path.
  */
 export const getAt = (layout: Layout, path: number[]) => {
   if (path.length === 0) return layout;

@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { debounce } from "lodash";
+import { Toaster, toast } from "sonner";
 import GridOverlay from "./components/GridOverlay";
-import Sidebar from "./components/Sidebar";
 import PreviewOverlay from "./components/PreviewOverlay";
-import { Layout, FigSize } from "./lib/layout";
-import { useHistory } from "./lib/history";
+import Sidebar from "./components/Sidebar";
+import { api } from "./lib/api";
 import {
   STORAGE_KEYS,
   DEFAULT_LAYOUT,
@@ -13,8 +13,8 @@ import {
   RENDER_DEBOUNCE,
   RESIZE_DEBOUNCE,
 } from "./lib/const";
-import { Toaster, toast } from "sonner";
-import { api } from "./lib/api";
+import { useHistory } from "./lib/history";
+import { Layout, FigSize } from "./lib/layout";
 
 const App: React.FC = () => {
   const [funcs, setFuncs] = useState<string[]>([]);

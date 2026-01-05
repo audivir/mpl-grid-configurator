@@ -1,7 +1,6 @@
 import { useCallback, useReducer } from "react";
 import { Layout, FigSize, LayoutNode } from "../lib/layout";
 
-// Define the shape of our history state
 interface HistoryState {
   past: Array<{ layout: Layout; figsize: FigSize }>;
   present: { layout: Layout; figsize: FigSize };
@@ -19,23 +18,6 @@ const historyReducer = (
   action: HistoryAction
 ): HistoryState => {
   const { past, present, future } = state;
-
-  //   console.log("past", past.length);
-  //   console.log("future", future.length);
-  //   console.log("action", action);
-  //   console.log(
-  //     "action",
-  //     action.type === "SET"
-  //       ? typeof action.layout === "string"
-  //         ? null
-  //         : action.layout.ratios
-  //       : null
-  //   );
-  //   const last = past[past.length - 1];
-  //   console.log(
-  //     "last past",
-  //     typeof last.layout === "string" ? null : last.layout.ratios
-  //   );
 
   switch (action.type) {
     case "UNDO": {
@@ -68,7 +50,7 @@ const historyReducer = (
     }
 
     case "SET": {
-      // Don't push to history if nothing actually changed
+      // Don't push to history if nothing changed
       if (
         JSON.stringify(present.layout) === JSON.stringify(action.layout) &&
         present.figsize.w === action.figsize.w &&

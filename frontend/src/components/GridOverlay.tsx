@@ -1,9 +1,9 @@
 import { useState, SetStateAction } from "react";
 import { cn } from "react-lib-tools";
-import { FigSize, Layout } from "../lib/layout";
-import { Columns, Rows, Grip, Trash2, Merge } from "lucide-react";
 import { Group, Panel, Separator } from "react-resizable-panels";
+import { Columns, Rows, Grip, Trash2, Merge } from "lucide-react";
 import gridCallbacks from "../lib/callbacks";
+import { FigSize, Layout } from "../lib/layout";
 
 interface GridOverlayProps {
   setPresent: (l: Layout, fs: FigSize) => void;

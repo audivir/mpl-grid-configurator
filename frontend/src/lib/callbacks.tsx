@@ -5,6 +5,7 @@ import {
   useEffect,
   SetStateAction,
 } from "react";
+import { Layout as ResizedLayout } from "react-resizable-panels";
 import { cloneDeep, debounce } from "lodash";
 import {
   getNode,
@@ -15,7 +16,6 @@ import {
   Orientation,
   getAt,
 } from "./layout";
-import { Layout as ResizedLayout } from "react-resizable-panels";
 
 const RESIZE_EPSILON = 0.01;
 

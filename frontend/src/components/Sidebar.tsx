@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   Pin,
   PinOff,
+  Copy,
 } from "lucide-react";
 import { SetStateAction, useRef, useState } from "react";
 import ControlButton from "./ControlButton";
@@ -105,7 +106,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         onMouseLeave={() => {
           if (!isPinned) {
             closeTimeoutRef.current = setTimeout(() => {
-              // Check if mouse is still outside (you'd need a ref for this)
               setSidebarOpen(false);
             }, 400);
           }
@@ -116,7 +116,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           className={cn(
             "bg-[#1e293b] border-r border-slate-700 transition-all duration-300 ease-in-out h-full overflow-y-auto relative z-50",
             !sidebarOpen ? "w-0 p-0 opacity-0" : "w-[280px] p-6 opacity-100",
-            // Add a glowing right border if peeking (not pinned)
             !isPinned &&
               sidebarOpen &&
               "border-r-2 border-r-blue-500/50 shadow-[4px_0_24px_rgba(0,0,0,0.5)]"
@@ -297,7 +296,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               />
 
               <ControlButton
-                icon={svgCopied ? Check : Download}
+                icon={svgCopied ? Check : Copy}
                 label={svgCopied ? "Copied!" : "Copy SVG"}
                 variant={svgCopied ? "success" : "default"}
                 onClick={() => copyContentToClipboard(svgContent, setSvgCopied)}
@@ -329,13 +328,11 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </section>
         </aside>
-        {/* FLOATING TOGGLE (Visible when collapsed) */}
         {!sidebarOpen && (
           <button
             onClick={(e) => {
               e.stopPropagation();
               setSidebarOpen(true);
-              // Clicking the toggle button manually pins the sidebar
               setIsPinned(true);
             }}
             className="absolute left-0 top-1/4 -translate-y-1/4 z-[60] bg-[#1e293b] border border-l-0 border-slate-700 p-1.5 rounded-r-md text-slate-400 hover:text-white hover:bg-blue-600 transition-all shadow-xl"
