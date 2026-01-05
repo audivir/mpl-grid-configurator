@@ -10,28 +10,12 @@ import {
   STORAGE_KEYS,
   DEFAULT_LAYOUT,
   DEFAULT_FIGSIZE,
-  API_BASE,
   DEFAULT_DPI,
   RENDER_DEBOUNCE,
   RESIZE_DEBOUNCE,
 } from "./lib/const";
 import { Toaster, toast } from "sonner";
-
-/**
- * Extracts the FastAPI 'detail' string from a Response object
- */
-const getErrorMessage = async (response: Response): Promise<string> => {
-  try {
-    const data = await response.json();
-    // FastAPI puts the message in .detail
-    // Sometimes it's a string, sometimes an array (for validation errors)
-    if (typeof data.detail === "string") return data.detail;
-    if (Array.isArray(data.detail)) return data.detail[0].msg;
-    return "An unexpected error occurred.";
-  } catch {
-    return `Server Error: ${response.statusText}`;
-  }
-};
+import { api } from "./lib/api";
 
 const App: React.FC = () => {
   const [funcs, setFuncs] = useState<string[]>([]);
@@ -65,71 +49,30 @@ const App: React.FC = () => {
   const renderLayout = useMemo(
     () =>
       debounce(async (l: Layout, fs: FigSize) => {
-        try {
-          const response = await fetch(`${API_BASE}/render`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ layout: l, figsize: [fs.w, fs.h] }),
-          });
-
-          if (!response.ok) {
-            const errorMessage = await getErrorMessage(response);
-            toast.error("Render Failed", {
-              description: errorMessage,
-              duration: 5000,
-            });
-            return;
-          }
-
-          const data = await response.json();
-          setSvgContent(data.svg);
-        } catch (e) {
-          toast.error("Network Error", {
-            description: "Could not connect to the Python backend.",
-          });
-        }
+        const data = await api.render(l, [fs.w, fs.h]);
+        if (data) setSvgContent(data.svg);
       }, RENDER_DEBOUNCE),
     []
   );
 
   const mergeCallback = async (p_a: string, p_b: string) => {
-    try {
-      const response = await fetch(`${API_BASE}/merge`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          layout_data: { layout, figsize: [figsize.w, figsize.h] },
-          path_a: p_a.split("-").slice(1).map(Number),
-          path_b: p_b.split("-").slice(1).map(Number),
-        }),
-      });
+    const layoutData = { layout, figsize: [figsize.w, figsize.h] };
+    const pathA = p_a.split("-").slice(1).map(Number);
+    const pathB = p_b.split("-").slice(1).map(Number);
 
-      if (!response.ok) {
-        const errorMessage = await getErrorMessage(response);
-        toast.error("Merge Failed", {
-          description: errorMessage,
-          duration: 5000,
-        });
-        return;
-      }
+    const data = await api.merge(layoutData, pathA, pathB);
 
-      const data = await response.json();
-      // Update history with the new layout returned from backend
+    if (data) {
       setPresent(data.layout, figsize);
       setSvgContent(data.svg);
       toast.success("Merge successful!");
-    } catch (e) {
-      toast.error("Merging failed:", {
-        description: "Could not connect to the Python backend.",
-      });
     }
   };
 
   useEffect(() => {
-    fetch(`${API_BASE}/functions`)
-      .then((r) => r.json())
-      .then((data) => setFuncs(data))
-      .catch((err) => console.error("Could not fetch functions:", err));
+    api.getFunctions().then((data) => {
+      if (data) setFuncs(data);
+    });
   }, []);
 
   useEffect(() => {
