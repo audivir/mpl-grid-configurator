@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from "react";
 import { debounce } from "lodash";
 import GridOverlay from "./components/GridOverlay";
 import Sidebar from "./components/Sidebar";
-import FloatingControls from "./components/FloatingControls";
 import PreviewOverlay from "./components/PreviewOverlay";
 import { Layout, FigSize } from "./lib/layout";
 import { useHistory } from "./lib/history";
@@ -21,7 +20,6 @@ const App: React.FC = () => {
   const [funcs, setFuncs] = useState<string[]>([]);
   const [svgContent, setSvgContent] = useState<string>("");
   const [showOverlay, setShowOverlay] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [zoom, setZoom] = useState(1);
 
   const { state, setPresent, undo, redo, canUndo, canRedo, resetHistory } =
@@ -84,7 +82,6 @@ const App: React.FC = () => {
       <Toaster theme="dark" position="bottom-right" expand={false} richColors />
       <div className="flex w-screen h-screen bg-[#0f172a] text-[#f1f5f9] font-sans overflow-hidden select-none">
         <Sidebar
-          collapsed={!sidebarOpen}
           layout={layout}
           figsize={figsize}
           figsizePreview={figsizePreview}
@@ -104,13 +101,6 @@ const App: React.FC = () => {
 
         {/* Workspace Viewport */}
         <main className="relative flex-1 bg-[#0f172a] overflow-hidden">
-          {showOverlay && (
-            <FloatingControls
-              sidebarOpen={sidebarOpen}
-              setSidebarOpen={setSidebarOpen}
-            />
-          )}
-
           {/* Scrollable Canvas */}
           <div className="w-full h-full overflow-auto scrollbar-hide">
             <div
@@ -141,6 +131,7 @@ const App: React.FC = () => {
                 </div>
               )}
 
+              {/* Resizing preview */}
               {showOverlay &&
                 (figsizePreview.w !== figsize.w ||
                   figsizePreview.h !== figsize.h) && ( // During dragging
