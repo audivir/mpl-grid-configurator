@@ -33,8 +33,8 @@ async def render_api(layout_data: LayoutData) -> SVGResponse:
         final_svg = buf.getvalue().decode("utf-8")
         fixed_svg = svg_callback(final_svg)
     except Exception as e:
-        logger.exception("Error during rendering")
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        logger.exception("Unexpected error during rendering")
+        raise HTTPException(status_code=500, detail=str(e)) from e
     else:
         return {"svg": fixed_svg}
 
@@ -51,14 +51,14 @@ async def merge_api(
 
     layout = layout_data["layout"]
     if isinstance(layout, str):
-        raise HTTPException(status_code=400, detail="Cannot merge leaf")
+        raise HTTPException(status_code=400, detail="Cannot merge a leaf")
 
     try:
         new_layout = merge_paths(layout, path_a, path_b)
     except MergeError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        logger.exception("Error during merge")
+        logger.exception("Unexpected error during merge")
         raise HTTPException(status_code=500, detail=str(e)) from e
     else:
         svg = await render_api({"layout": new_layout, "figsize": layout_data["figsize"]})
