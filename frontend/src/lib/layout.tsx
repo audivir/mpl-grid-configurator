@@ -15,7 +15,7 @@ export interface FigSize {
 /**
  * Get the layout at the given path.
  */
-export const getLayout = (layout: Layout, path: number[]) => {
+export const getAt = (layout: Layout, path: number[]) => {
   if (path.length === 0) return layout;
   if (typeof layout !== "object")
     throw new Error("Invalid path: must be object if path is not empty");
@@ -32,7 +32,7 @@ export const getLayout = (layout: Layout, path: number[]) => {
  * Get the node at the given path.
  */
 export const getNode = (layout: Layout, path: number[]) => {
-  const target = getLayout(layout, path);
+  const target = getAt(layout, path);
   if (typeof target !== "object")
     throw new Error("Invalid path: must be object at end");
   return target;
@@ -42,7 +42,7 @@ export const getNode = (layout: Layout, path: number[]) => {
  * Get the leaf at the given path.
  */
 export const getLeaf = (layout: Layout, path: number[]) => {
-  const target = getLayout(layout, path);
+  const target = getAt(layout, path);
   if (typeof target !== "string")
     throw new Error("Invalid path: must be string at end");
   return target;

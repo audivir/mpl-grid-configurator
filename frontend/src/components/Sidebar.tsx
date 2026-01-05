@@ -1,4 +1,5 @@
 import { FigSize, Layout } from "../lib/layout";
+import { toast } from "sonner";
 import { cn } from "react-lib-tools";
 import {
   Settings,
@@ -32,6 +33,23 @@ interface SidebarProps {
   onUndo: () => void;
   onRedo: () => void;
 }
+
+const handleImport = (handleReset: (l: Layout, fs: FigSize) => void) => {
+  const raw = window.prompt("Paste Config JSON:");
+  if (!raw) return;
+
+  try {
+    const p = JSON.parse(raw);
+    if (!p.layout || !p.figsize) throw new Error("Missing keys");
+
+    handleReset(p.layout, p.figsize);
+    toast.success("Configuration loaded successfully");
+  } catch (err) {
+    toast.error("Invalid Configuration", {
+      description: "The JSON format you pasted is incorrect or corrupted.",
+    });
+  }
+};
 
 const Sidebar: React.FC<SidebarProps> = ({
   collapsed,
@@ -186,17 +204,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <ControlButton
             icon={Import}
             label="Import Config"
-            onClick={() => {
-              const raw = window.prompt("Paste Config JSON:");
-              if (raw) {
-                try {
-                  const p = JSON.parse(raw);
-                  handleReset(p.layout, p.figsize);
-                } catch {
-                  alert("Invalid JSON");
-                }
-              }
-            }}
+            onClick={() => handleImport(handleReset)}
           />
 
           <ControlButton

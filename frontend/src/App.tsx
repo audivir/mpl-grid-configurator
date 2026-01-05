@@ -15,6 +15,23 @@ import {
   RENDER_DEBOUNCE,
   RESIZE_DEBOUNCE,
 } from "./lib/const";
+import { Toaster, toast } from "sonner";
+
+/**
+ * Extracts the FastAPI 'detail' string from a Response object
+ */
+const getErrorMessage = async (response: Response): Promise<string> => {
+  try {
+    const data = await response.json();
+    // FastAPI puts the message in .detail
+    // Sometimes it's a string, sometimes an array (for validation errors)
+    if (typeof data.detail === "string") return data.detail;
+    if (Array.isArray(data.detail)) return data.detail[0].msg;
+    return "An unexpected error occurred.";
+  } catch {
+    return `Server Error: ${response.statusText}`;
+  }
+};
 
 const App: React.FC = () => {
   const [funcs, setFuncs] = useState<string[]>([]);
@@ -54,12 +71,22 @@ const App: React.FC = () => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ layout: l, figsize: [fs.w, fs.h] }),
           });
-          if (response.ok) {
-            const data = await response.json();
-            setSvgContent(data.svg);
+
+          if (!response.ok) {
+            const errorMessage = await getErrorMessage(response);
+            toast.error("Render Failed", {
+              description: errorMessage,
+              duration: 5000,
+            });
+            return;
           }
+
+          const data = await response.json();
+          setSvgContent(data.svg);
         } catch (e) {
-          console.error("Rendering failed:", e);
+          toast.error("Network Error", {
+            description: "Could not connect to the Python backend.",
+          });
         }
       }, RENDER_DEBOUNCE),
     []
@@ -76,14 +103,25 @@ const App: React.FC = () => {
           path_b: p_b.split("-").slice(1).map(Number),
         }),
       });
-      if (response.ok) {
-        const data = await response.json();
-        // Update history with the new layout returned from backend
-        setPresent(data.layout, figsize);
-        setSvgContent(data.svg);
+
+      if (!response.ok) {
+        const errorMessage = await getErrorMessage(response);
+        toast.error("Merge Failed", {
+          description: errorMessage,
+          duration: 5000,
+        });
+        return;
       }
+
+      const data = await response.json();
+      // Update history with the new layout returned from backend
+      setPresent(data.layout, figsize);
+      setSvgContent(data.svg);
+      toast.success("Merge successful!");
     } catch (e) {
-      console.error("Merging failed:", e);
+      toast.error("Merging failed:", {
+        description: "Could not connect to the Python backend.",
+      });
     }
   };
 
@@ -99,74 +137,77 @@ const App: React.FC = () => {
   }, [layout, figsize, renderLayout]);
 
   return (
-    <div className="flex w-screen h-screen bg-[#0f172a] text-[#f1f5f9] font-sans overflow-hidden select-none">
-      <Sidebar
-        collapsed={!sidebarOpen}
-        layout={layout}
-        figsize={figsize}
-        figsizePreview={figsizePreview}
-        setFigsizePreview={setFigsizePreview}
-        commitFigsize={() => setPresent(layout, figsizePreview)}
-        zoom={zoom}
-        setZoom={setZoom}
-        showOverlay={showOverlay}
-        setShowOverlay={setShowOverlay}
-        handleReset={(l: Layout, fs: FigSize) => resetHistory(l, fs)}
-        svgContent={svgContent}
-        canUndo={canUndo}
-        canRedo={canRedo}
-        onUndo={undo}
-        onRedo={redo}
-      />
+    <>
+      <Toaster theme="dark" position="bottom-right" expand={false} richColors />
+      <div className="flex w-screen h-screen bg-[#0f172a] text-[#f1f5f9] font-sans overflow-hidden select-none">
+        <Sidebar
+          collapsed={!sidebarOpen}
+          layout={layout}
+          figsize={figsize}
+          figsizePreview={figsizePreview}
+          setFigsizePreview={setFigsizePreview}
+          commitFigsize={() => setPresent(layout, figsizePreview)}
+          zoom={zoom}
+          setZoom={setZoom}
+          showOverlay={showOverlay}
+          setShowOverlay={setShowOverlay}
+          handleReset={(l: Layout, fs: FigSize) => resetHistory(l, fs)}
+          svgContent={svgContent}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={undo}
+          onRedo={redo}
+        />
 
-      {/* Workspace Viewport */}
-      <main className="relative flex-1 bg-[#0f172a] overflow-hidden">
-        {showOverlay && (
-          <FloatingControls
-            sidebarOpen={sidebarOpen}
-            setSidebarOpen={setSidebarOpen}
-          />
-        )}
-
-        {/* Scrollable Canvas */}
-        <div className="w-full h-full overflow-auto scrollbar-hide">
-          <div
-            className="relative bg-white shadow-xl origin-top-left transition-transform duration-75 ease-out"
-            style={{
-              width: `${figsize.w * DEFAULT_DPI}px`,
-              height: `${figsize.h * DEFAULT_DPI}px`,
-              transform: `scale(${zoom})`,
-            }}
-          >
-            {/* SVG content */}
-            <div
-              className="absolute inset-0 z-0 pointer-events-none"
-              dangerouslySetInnerHTML={{ __html: svgContent }}
+        {/* Workspace Viewport */}
+        <main className="relative flex-1 bg-[#0f172a] overflow-hidden">
+          {showOverlay && (
+            <FloatingControls
+              sidebarOpen={sidebarOpen}
+              setSidebarOpen={setSidebarOpen}
             />
+          )}
 
-            {showOverlay && (
-              <div className="absolute inset-0 z-10">
-                <GridOverlay
-                  setPresent={setPresent}
-                  layout={layout}
-                  figsize={figsize}
-                  funcs={funcs}
-                  zoom={zoom}
-                  resizeDebounce={RESIZE_DEBOUNCE}
-                  mergeCallback={mergeCallback}
-                />
-              </div>
-            )}
+          {/* Scrollable Canvas */}
+          <div className="w-full h-full overflow-auto scrollbar-hide">
+            <div
+              className="relative bg-white shadow-xl origin-top-left transition-transform duration-75 ease-out"
+              style={{
+                width: `${figsize.w * DEFAULT_DPI}px`,
+                height: `${figsize.h * DEFAULT_DPI}px`,
+                transform: `scale(${zoom})`,
+              }}
+            >
+              {/* SVG content */}
+              <div
+                className="absolute inset-0 z-0 pointer-events-none"
+                dangerouslySetInnerHTML={{ __html: svgContent }}
+              />
 
-            {showOverlay &&
-              (figsizePreview.w !== figsize.w ||
-                figsizePreview.h !== figsize.h) && ( // During dragging
-                <PreviewOverlay figsize={figsizePreview} dpi={DEFAULT_DPI} />
+              {showOverlay && (
+                <div className="absolute inset-0 z-10">
+                  <GridOverlay
+                    setPresent={setPresent}
+                    layout={layout}
+                    figsize={figsize}
+                    funcs={funcs}
+                    zoom={zoom}
+                    resizeDebounce={RESIZE_DEBOUNCE}
+                    mergeCallback={mergeCallback}
+                  />
+                </div>
               )}
+
+              {showOverlay &&
+                (figsizePreview.w !== figsize.w ||
+                  figsizePreview.h !== figsize.h) && ( // During dragging
+                  <PreviewOverlay figsize={figsizePreview} dpi={DEFAULT_DPI} />
+                )}
+            </div>
           </div>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </>
   );
 };
 

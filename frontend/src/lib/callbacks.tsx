@@ -13,6 +13,7 @@ import {
   Layout,
   Resize,
   Orientation,
+  getAt,
 } from "./layout";
 import { Layout as ResizedLayout } from "react-resizable-panels";
 
@@ -148,13 +149,13 @@ const useGridCallbacks = ({
 
     setLayout((prev) => {
       const next = cloneDeep(prev);
-      const siblingLeaf = getNode(next, siblingPath);
+      const siblingElem = getAt(next, siblingPath);
       // if parent is root, return sibling
-      if (parentPath.length === 0) return siblingLeaf;
+      if (parentPath.length === 0) return siblingElem;
       // else replace parent with sibling
       const grandparentPath = parentPath.slice(0, -1);
       const grandparentNode = getNode(next, grandparentPath);
-      grandparentNode.children[parentIx] = siblingLeaf;
+      grandparentNode.children[parentIx] = siblingElem;
       return next;
     });
   };

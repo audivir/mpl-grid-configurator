@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 EPSILON = 1e-9
-MIN_TOUCH_RATIO = 1.0
+MIN_TOUCH_RATIO = 0.9
 
 
 def almost_equal(a: float, b: float) -> bool:
@@ -330,7 +330,9 @@ def connect_paths(
     orient = are_bboxes_touching(bbox_a, bbox_b)
 
     if orient is None:
-        raise ValueError("Bounding boxes do not touch")
+        raise ValueError(
+            f"Bounding boxes must touch and overlap at least {int(100 * MIN_TOUCH_RATIO)} %."
+        )
 
     rectified_mapping: dict[str, BoundingBox] = {}
     for key, bbox in bbox_mapping.items():
