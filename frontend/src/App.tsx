@@ -1,22 +1,25 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { debounce } from "lodash";
 import { Toaster, toast } from "sonner";
-import GridOverlay from "./components/GridOverlay";
-import PreviewOverlay from "./components/PreviewOverlay";
+import InitialLoader from "./components/InitialLoader";
 import Sidebar from "./components/Sidebar";
+import Workspace from "./components/Workspace";
 import { api } from "./lib/api";
 import {
   STORAGE_KEYS,
   DEFAULT_LAYOUT,
   DEFAULT_FIGSIZE,
-  DEFAULT_DPI,
   RENDER_DEBOUNCE,
-  RESIZE_DEBOUNCE,
 } from "./lib/const";
-import { useHistory } from "./lib/history";
+import useHistory from "./lib/history";
+import useInit from "./lib/init";
 import { Layout, FigSize } from "./lib/layout";
 
 const App: React.FC = () => {
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [sessionToken, setSessionToken] = useState<string | null>(
+    localStorage.getItem(STORAGE_KEYS.SESSION_TOKEN)
+  );
   const [funcs, setFuncs] = useState<string[]>([]);
   const [svgContent, setSvgContent] = useState<string>("");
   const [showOverlay, setShowOverlay] = useState(true);
@@ -33,12 +36,13 @@ const App: React.FC = () => {
     );
 
   const { layout, figsize } = state;
-  const [figsizePreview, setFigsizePreview] = useState<FigSize>(figsize);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.FIGSIZE, JSON.stringify(figsize));
     localStorage.setItem(STORAGE_KEYS.LAYOUT, JSON.stringify(layout));
   }, [layout, figsize]);
+
+  const [figsizePreview, setFigsizePreview] = useState<FigSize>(figsize);
 
   useEffect(() => {
     setFigsizePreview(figsize);
@@ -46,19 +50,18 @@ const App: React.FC = () => {
 
   const renderLayout = useMemo(
     () =>
-      debounce(async (l: Layout, fs: FigSize) => {
-        const data = await api.render(l, [fs.w, fs.h]);
+      debounce(async (l: Layout, fs: FigSize, tok: string | null) => {
+        const data = await api.render(l, fs, tok);
         if (data) setSvgContent(data.svg);
       }, RENDER_DEBOUNCE),
     []
   );
 
-  const mergeCallback = async (p_a: string, p_b: string) => {
-    const layoutData = { layout, figsize: [figsize.w, figsize.h] };
-    const pathA = p_a.split("-").slice(1).map(Number);
-    const pathB = p_b.split("-").slice(1).map(Number);
+  const mergeCallback = async (pA: string, pB: string) => {
+    const pathA = pA.split("-").slice(1).map(Number);
+    const pathB = pB.split("-").slice(1).map(Number);
 
-    const data = await api.merge(layoutData, pathA, pathB);
+    const data = await api.merge(layout, figsize, pathA, pathB, sessionToken);
 
     if (data) {
       setPresent(data.layout, figsize);
@@ -68,14 +71,22 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    api.getFunctions().then((data) => {
-      if (data) setFuncs(data);
-    });
-  }, []);
-
-  useEffect(() => {
-    renderLayout(layout, figsize);
+    if (isInitializing || !sessionToken) return;
+    renderLayout(layout, figsize, sessionToken);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layout, figsize, renderLayout]);
+
+  // Consolidated Initialization
+  useInit({
+    setIsInitializing,
+    sessionToken,
+    setSessionToken,
+    layout,
+    figsize,
+    renderLayout,
+    setFuncs,
+    setSvgContent,
+  });
 
   return (
     <>
@@ -99,46 +110,22 @@ const App: React.FC = () => {
           onRedo={redo}
         />
 
-        {/* Workspace Viewport */}
         <main className="relative flex-1 bg-[#0f172a] overflow-hidden">
-          {/* Scrollable Canvas */}
-          <div className="w-full h-full overflow-auto scrollbar-hide">
-            <div
-              className="relative bg-white shadow-xl origin-top-left transition-transform duration-75 ease-out"
-              style={{
-                width: `${figsize.w * DEFAULT_DPI}px`,
-                height: `${figsize.h * DEFAULT_DPI}px`,
-                transform: `scale(${zoom})`,
-              }}
-            >
-              {/* SVG content */}
-              <div
-                className="absolute inset-0 z-0 pointer-events-none"
-                dangerouslySetInnerHTML={{ __html: svgContent }}
-              />
-
-              {showOverlay && (
-                <div className="absolute inset-0 z-10">
-                  <GridOverlay
-                    setPresent={setPresent}
-                    layout={layout}
-                    figsize={figsize}
-                    funcs={funcs}
-                    zoom={zoom}
-                    resizeDebounce={RESIZE_DEBOUNCE}
-                    mergeCallback={mergeCallback}
-                  />
-                </div>
-              )}
-
-              {/* Resizing preview */}
-              {showOverlay &&
-                (figsizePreview.w !== figsize.w ||
-                  figsizePreview.h !== figsize.h) && ( // During dragging
-                  <PreviewOverlay figsize={figsizePreview} />
-                )}
-            </div>
-          </div>
+          {isInitializing ? (
+            <InitialLoader />
+          ) : (
+            <Workspace
+              setPresent={setPresent}
+              layout={layout}
+              figsize={figsize}
+              figsizePreview={figsizePreview}
+              showOverlay={showOverlay}
+              svgContent={svgContent}
+              zoom={zoom}
+              funcs={funcs}
+              mergeCallback={mergeCallback}
+            />
+          )}
         </main>
       </div>
     </>

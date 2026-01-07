@@ -16,9 +16,10 @@ import {
   PinOff,
   Copy,
 } from "lucide-react";
-import { SetStateAction, useRef, useState } from "react";
+import { SetStateAction, useEffect, useRef, useState } from "react";
 import ControlButton from "./ControlButton";
 import { copyContentToClipboard, downloadContent } from "../lib/content";
+import { STORAGE_KEYS } from "../lib/const";
 
 interface SidebarProps {
   layout: Layout;
@@ -72,8 +73,15 @@ const Sidebar: React.FC<SidebarProps> = ({
   onUndo,
   onRedo,
 }) => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isPinned, setIsPinned] = useState(false);
+  const [isPinned, setIsPinned] = useState(
+    localStorage.getItem(STORAGE_KEYS.SIDEBAR_PINNED) === "true"
+  );
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.SIDEBAR_PINNED, isPinned.toString());
+  }, [isPinned]);
+
+  const [sidebarOpen, setSidebarOpen] = useState(isPinned);
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [configCopied, setConfigCopied] = useState(false);
   const [svgCopied, setSvgCopied] = useState(false);

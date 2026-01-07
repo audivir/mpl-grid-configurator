@@ -9,4 +9,6 @@ export const RENDER_DEBOUNCE = 150;
 export const STORAGE_KEYS = {
   LAYOUT: "plot-layout-v1",
   FIGSIZE: "plot-figsize-v1",
+  SIDEBAR_PINNED: "plot-sidebar-pinned-v1",
+  SESSION_TOKEN: "plot-session-token-v1",
 } as const;

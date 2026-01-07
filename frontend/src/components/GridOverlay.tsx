@@ -12,7 +12,7 @@ interface GridOverlayProps {
   zoom: number;
   funcs: string[];
   resizeDebounce: number;
-  mergeCallback: (p_a: string, p_b: string) => void;
+  mergeCallback: (pA: string, pB: string) => void;
 }
 
 interface RecursiveGridProps {

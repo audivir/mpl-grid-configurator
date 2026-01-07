@@ -1,5 +1,6 @@
 import { toast } from "sonner";
 import { API_BASE } from "./const";
+import { FigSize, Layout } from "./layout";
 
 /**
  * Parses FastAPI error details
@@ -21,6 +22,7 @@ const getErrorMessage = async (response: Response): Promise<string> => {
 async function apiFetch<T>(
   endpoint: string,
   options: RequestInit = {},
+  sessionToken: string | null = null,
   errorTitle = "Request Failed"
 ): Promise<T | null> {
   try {
@@ -29,6 +31,7 @@ async function apiFetch<T>(
       headers: {
         "Content-Type": "application/json",
         ...options.headers,
+        Authorization: sessionToken ? `Bearer ${sessionToken}` : "",
       },
     });
 
@@ -51,29 +54,46 @@ async function apiFetch<T>(
  * API calls to backend
  */
 export const api = {
+  healthCheck: (tok: string | null) =>
+    apiFetch<boolean>("/health", { method: "GET" }, tok, "Health Check Failed"),
+
+  createSession: (l: Layout, fs: FigSize) =>
+    apiFetch<{ token: string; svg: string }>("/session", {
+      method: "POST",
+      body: JSON.stringify({ layout: l, figsize: [fs.w, fs.h] }),
+    }),
+
   getFunctions: () => apiFetch<string[]>("/functions", { method: "GET" }),
 
-  render: (layout: any, figsize: [number, number]) =>
-    apiFetch<{ svg: string }>(
+  render: (l: Layout, fs: FigSize, tok: string | null) =>
+    apiFetch<{ token: string; svg: string }>(
       "/render",
       {
         method: "POST",
-        body: JSON.stringify({ layout, figsize }),
+        body: JSON.stringify({ layout: l, figsize: [fs.w, fs.h] }),
       },
+      tok,
       "Render Failed"
     ),
 
-  merge: (layoutData: any, pathA: number[], pathB: number[]) =>
-    apiFetch<{ layout: any; svg: string }>(
+  merge: (
+    l: Layout,
+    fs: FigSize,
+    pA: number[],
+    pB: number[],
+    tok: string | null
+  ) =>
+    apiFetch<{ token: string; layout: Layout; svg: string }>(
       "/merge",
       {
         method: "POST",
         body: JSON.stringify({
-          layout_data: layoutData,
-          path_a: pathA,
-          path_b: pathB,
+          layout_data: { layout: l, figsize: [fs.w, fs.h] },
+          path_a: pA,
+          path_b: pB,
         }),
       },
+      tok,
       "Merge Failed"
     ),
 };

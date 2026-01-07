@@ -79,7 +79,7 @@ const historyReducer = (
   }
 };
 
-export const useHistory = (initialLayout: Layout, initialFigsize: FigSize) => {
+const useHistory = (initialLayout: Layout, initialFigsize: FigSize) => {
   const [state, dispatch] = useReducer(historyReducer, {
     past: [],
     present: { layout: initialLayout, figsize: initialFigsize },
@@ -110,3 +110,5 @@ export const useHistory = (initialLayout: Layout, initialFigsize: FigSize) => {
     canRedo,
   };
 };
+
+export default useHistory;
