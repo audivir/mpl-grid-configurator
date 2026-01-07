@@ -115,6 +115,10 @@ def start_app(port: int = 8000) -> None:
         f"To configure your grid, open http://localhost:{port}/index.html in your browser."
     )
 
+    # allow ctrl-c to stop the servers
+    while True:
+        time.sleep(0.1)
+
     # wait for the backend thread and the frontend process to finish
     backend.join()
     frontend.join()
