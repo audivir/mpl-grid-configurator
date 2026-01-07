@@ -6,7 +6,7 @@ from mpl_grid_configurator.register import register
 from mpl_grid_configurator.render import render_layout, render_recursive, split_figure
 from mpl_grid_configurator.types import Layout, LayoutNode
 
-__version__ = "0.3.12"
+__version__ = "0.3.13"
 
 __all__ = [
     "Layout",

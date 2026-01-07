@@ -343,7 +343,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               setSidebarOpen(true);
               setIsPinned(true);
             }}
-            className="absolute left-0 top-1/4 -translate-y-1/4 z-[60] bg-[#1e293b] border border-l-0 border-slate-700 p-1.5 rounded-r-md text-slate-400 hover:text-white hover:bg-blue-600 transition-all shadow-xl"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-[60] bg-[#1e293b] border border-l-0 border-slate-700 p-1.5 rounded-r-md text-slate-400 hover:text-white hover:bg-blue-600 transition-all shadow-xl"
           >
             <ChevronRight size={18} />
           </button>
