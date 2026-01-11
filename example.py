@@ -1,8 +1,8 @@
 """Example usage of mpl-grid-configurator."""
 
 from __future__ import annotations
-import time
 
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -41,12 +41,12 @@ def draw_scatter(container: Figure | SubFigure) -> Axes:
     return ax
 
 
-def draw_two_seconds(container: Figure | SubFigure) -> Axes:
-    """Draw 2 seconds."""
-    time.sleep(2)
+def draw_one_second(container: Figure | SubFigure) -> Axes:
+    """Draw 1 second."""
+    time.sleep(1)
     ax = container.subplots()
     ax.axis("off")
-    ax.text(0.5, 0.3, "Drawn in 2 seconds", ha="center", va="center")
+    ax.text(0.5, 0.3, "Drawn in 1 second", ha="center", va="center")
     return ax
 
 
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     register(add_svg)
     register(draw_sine)
     register(draw_scatter)
-    register(draw_two_seconds)
+    register(draw_one_second)
 
     # Start the backend and frontend
     start_app()
