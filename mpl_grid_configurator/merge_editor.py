@@ -67,6 +67,7 @@ def unmerge(
 
 
 # ruff: noqa: ERA001
+# TODO(tihoph): static type arguments for Change?
 # class DeleteKwargs(TypedDict):
 #     path: tuple[int, ...]
 

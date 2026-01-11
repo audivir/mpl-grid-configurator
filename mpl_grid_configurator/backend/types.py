@@ -1,6 +1,7 @@
 """Types for the backend."""
 
-from typing import TypedDict
+# Pydantic: Please use `typing_extensions.TypedDict` instead of `typing.TypedDict` on Python < 3.12.
+from typing_extensions import TypedDict
 
 from mpl_grid_configurator.types import Change, Layout, Orientation
 

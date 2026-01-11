@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Annotated
 
@@ -18,11 +20,21 @@ if TYPE_CHECKING:
     from mpl_grid_configurator.backend.types import FullResponse
     from mpl_grid_configurator.types import Layout, SubFigure_
 
+logger = logging.getLogger(__name__)
 dotenv.load_dotenv()
 DEFAULT_EXPIRE_MINUTES = 30
 ALGORITHM = "HS256"
 
-SECRET_KEY = os.environ["JWT_SECRET_KEY"]
+
+def get_secret_key() -> str:
+    """Get the secret key from the environment or generate a random one."""
+    if secret_key := os.getenv("JWT_SECRET_KEY"):
+        return secret_key
+    logger.warning("JWT_SECRET_KEY is not set, generating a random key")
+    return secrets.token_urlsafe(32)
+
+
+SECRET_KEY = get_secret_key()
 EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", DEFAULT_EXPIRE_MINUTES))
 auth_scheme = HTTPBearer()
 

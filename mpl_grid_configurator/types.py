@@ -18,6 +18,8 @@ from typing import (
 
 from doctyper._typing import eval_type
 from matplotlib.figure import Figure, SubFigure  # noqa: TC002
+
+# Pydantic: Please use `typing_extensions.TypedDict` instead of `typing.TypedDict` on Python < 3.12.
 from typing_extensions import TypedDict, TypeIs
 
 if TYPE_CHECKING:

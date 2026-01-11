@@ -50,7 +50,7 @@ def start_app(port: int = 8000) -> None:
     )
     backend.start()
 
-    frontend_app = ServeStaticASGI(None, root=FRONTEND_DIR)
+    frontend_app = ServeStaticASGI(None, root=FRONTEND_DIR, index_file="index.html")
 
     frontend = threading.Thread(
         target=uvicorn.run,
