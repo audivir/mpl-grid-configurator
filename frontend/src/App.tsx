@@ -29,16 +29,18 @@ const App: React.FC = () => {
       : DEFAULT_FIGSIZE,
   });
 
-  const { state, setPresent } = history;
+  const { state } = history;
   const { layout, figsize } = state;
 
-  useEffect(() => {
-    if (typeof figsize !== "object") {
-      setPresent(layout, DEFAULT_FIGSIZE);
-    }
-  }, [layout, figsize, setPresent]);
+  // useEffect(() => {
+  //   console.log("Setting present", layout, figsize);
+  //   if (typeof figsize !== "object") {
+  //     setPresent(layout, DEFAULT_FIGSIZE);
+  //   }
+  // }, [layout, figsize, setPresent]);
 
   useEffect(() => {
+    console.log("Storing layout and figsize", figsize);
     localStorage.setItem(STORAGE_KEYS.FIGSIZE, JSON.stringify(figsize));
     localStorage.setItem(STORAGE_KEYS.LAYOUT, JSON.stringify(layout));
   }, [layout, figsize]);
@@ -53,7 +55,6 @@ const App: React.FC = () => {
     layout,
     figsize,
     sessionToken,
-    setPresent,
     setSvgContent,
     executeAction: history.executeAction,
   });
@@ -78,7 +79,7 @@ const App: React.FC = () => {
 
   return (
     <>
-      <Toaster theme="dark" position="top-right" expand={false} richColors />
+      <Toaster theme="dark" position="bottom-right" expand={false} richColors />
       <div className="flex w-screen h-screen bg-[#0f172a] text-[#f1f5f9] font-sans overflow-hidden select-none">
         <Sidebar
           layout={layout}

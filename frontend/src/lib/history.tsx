@@ -1,4 +1,4 @@
-import { useCallback, useReducer } from "react";
+import { useReducer } from "react";
 import { FullResponse } from "../lib/api";
 import { Layout, FigSize } from "../lib/layout";
 import { ApiCall } from "./apiCalls";
@@ -12,7 +12,8 @@ export type HistoryActionType =
   | "RESTRUCTURE"
   | "ROTATE"
   | "SPLIT"
-  | "SWAP";
+  | "SWAP"
+  | "RESET";
 
 interface HistoryDelta {
   type: HistoryActionType;
@@ -35,21 +36,15 @@ type HistoryAction =
     }
   | { type: "UNDO"; layout: Layout; figsize: FigSize }
   | { type: "REDO"; layout: Layout; figsize: FigSize }
-  | { type: "SET"; layout: Layout; figsize: FigSize }
   | { type: "RESET"; layout: Layout; figsize: FigSize };
 
 const historyReducer = (
   state: HistoryState,
   action: HistoryAction
 ): HistoryState => {
+  console.log("History action:", action);
   switch (action.type) {
     case "PUSH":
-      //     if (
-      //   state.past.length > 0 &&
-      //   JSON.stringify(state.past[state.past.length - 1]) ===
-      //     JSON.stringify(action.delta)
-      // )
-      //   return state;
       return {
         past: [
           ...state.past,
@@ -72,7 +67,6 @@ const historyReducer = (
         present: { layout: action.layout, figsize: action.figsize },
         future: state.future.slice(1),
       };
-    case "SET":
     case "RESET":
       return {
         past: action.type === "RESET" ? [] : state.past,
@@ -97,8 +91,6 @@ export type History = {
     type: HistoryActionType,
     apiCallBuilder: (l: Layout, f: FigSize) => ApiCall<FullResponse | null>
   ) => Promise<FullResponse | null>;
-  setPresent: (layout: Layout, figsize: FigSize) => void;
-  reset: (layout: Layout, figsize: FigSize) => void;
   canUndo: boolean;
   canRedo: boolean;
 };
@@ -112,17 +104,17 @@ const useHistory = ({
     present: { layout: initialLayout, figsize: initialFigsize },
     future: [],
   });
-
-  const setPresent = (layout: Layout, figsize: FigSize) =>
-    dispatch({ type: "SET", layout, figsize });
-
   const executeAction = async (
     type: HistoryActionType,
     apiCallBuilder: (l: Layout, f: FigSize) => ApiCall<FullResponse | null>
   ) => {
     const apiCall = apiCallBuilder(state.present.layout, state.present.figsize);
     const res = await apiCall.do();
-    if (res) {
+
+    if (!res) return null;
+    if (type === "RESET") {
+      dispatch({ type: "RESET", layout: res.layout, figsize: res.figsize });
+    } else {
       dispatch({
         type: "PUSH",
         actionType: type,
@@ -130,9 +122,8 @@ const useHistory = ({
         layout: res.layout,
         figsize: res.figsize,
       });
-      return res;
     }
-    return null;
+    return res;
   };
 
   const undo = async () => {
@@ -155,17 +146,11 @@ const useHistory = ({
     return res;
   };
 
-  const reset = useCallback(() => {
-    dispatch({ type: "RESET", layout: initialLayout, figsize: initialFigsize });
-  }, [initialLayout, initialFigsize]);
-
   return {
     state: state.present,
     undo,
     redo,
     executeAction,
-    setPresent,
-    reset,
     canUndo: state.past.length > 0,
     canRedo: state.future.length > 0,
   };

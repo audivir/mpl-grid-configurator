@@ -36,7 +36,7 @@ async function apiRequest<T>(
   errorTitle = "Error"
 ): Promise<T | null> {
   try {
-    console.log("API Request", endpoint, method, body, token, errorTitle);
+    console.debug("API Request", endpoint, method, body, token?.slice(0, 5));
     const response = await fetch(`${API_BASE}${endpoint}`, {
       method,
       headers: {
@@ -52,7 +52,13 @@ async function apiRequest<T>(
       return null;
     }
 
-    return await response.json();
+    const res = await response.json();
+    // if token is in res, log only first 5 characters
+    console.debug("API Response", {
+      ...res,
+      ...(res.token && { token: res.token.slice(0, 5) }),
+    });
+    return res;
   } catch (error) {
     toast.error("Network Error", {
       description: "Connection to backend lost.",

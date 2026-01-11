@@ -167,4 +167,15 @@ export const apiCalls = {
       undo: async () => api.edit.swap(pathB, pathA, sessionToken),
     };
   },
+
+  render: (
+    layout: Layout,
+    figsize: FigSize,
+    sessionToken: string | null
+  ): ApiCall<FullResponse | null> => {
+    return {
+      do: async () => api.render(layout, figsize, sessionToken),
+      undo: async () => null,
+    };
+  },
 };

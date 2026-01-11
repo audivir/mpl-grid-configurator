@@ -38,7 +38,9 @@ interface SidebarProps {
   actions: LayoutActions;
 }
 
-const handleImport = (handleReset: (l: Layout, fs: FigSize) => void) => {
+const handleImport = (
+  handleReset: (l: Layout, fs: FigSize, msg?: string) => Promise<void>
+) => {
   const raw = window.prompt("Paste Config JSON:");
   if (!raw) return;
 
@@ -46,8 +48,7 @@ const handleImport = (handleReset: (l: Layout, fs: FigSize) => void) => {
     const p = JSON.parse(raw);
     if (!p.layout || !p.figsize) throw new Error("Missing keys");
 
-    handleReset(p.layout, p.figsize);
-    toast.success("Configuration loaded successfully");
+    handleReset(p.layout, p.figsize, "Configuration loaded successfully");
   } catch (err) {
     toast.error("Invalid Configuration", {
       description: "The JSON format you pasted is incorrect or corrupted.",
@@ -302,7 +303,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               <ControlButton
                 icon={Import}
                 label="Import Config"
-                onClick={() => handleImport(history.reset)}
+                onClick={() => handleImport(actions.reset)}
               />
 
               <ControlButton
@@ -332,7 +333,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                 variant="danger"
                 onClick={() =>
                   window.confirm("Reset all progress?") &&
-                  history.reset(DEFAULT_LAYOUT, DEFAULT_FIGSIZE)
+                  actions.reset(
+                    DEFAULT_LAYOUT,
+                    DEFAULT_FIGSIZE,
+                    "Layout reset successfully"
+                  )
                 }
               />
             </div>

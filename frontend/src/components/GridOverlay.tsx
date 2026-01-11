@@ -1,7 +1,14 @@
 import { useState } from "react";
 import { cn } from "react-lib-tools";
 import { Group, Panel, Separator } from "react-resizable-panels";
-import { Columns, Rows, Grip, Trash2, Merge, RotateCcw } from "lucide-react";
+import {
+  Columns,
+  Rows,
+  Trash2,
+  Merge,
+  RotateCcw,
+  SwitchCamera,
+} from "lucide-react";
 import { LayoutActions } from "../lib/actions";
 import { FigSize, Layout } from "../lib/layout";
 
@@ -97,7 +104,7 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
             >
               {path.length > 0 && (
                 <DragButton
-                  icon={Grip}
+                  icon={SwitchCamera}
                   setter={(pathId) => {
                     setMergePathId(null); // assure no merge
                     setSwapPathId(pathId);

@@ -19,7 +19,6 @@ interface UseRestructureProps {
   layout: Layout;
   figsize: FigSize;
   sessionToken: string | null;
-  setPresent: (layout: Layout, figsize: FigSize) => void;
   setSvgContent: (svg: string) => void;
   executeAction: (
     type: HistoryActionType,
@@ -43,7 +42,6 @@ export const useRestructure = ({
   layout,
   figsize,
   sessionToken,
-  setPresent,
   setSvgContent,
   executeAction,
 }: UseRestructureProps) => {
@@ -106,7 +104,6 @@ export const useRestructure = ({
     columnRestructure,
     figsize,
     sessionToken,
-    setPresent,
     setSvgContent,
     executeAction,
   ]);

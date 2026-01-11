@@ -1,7 +1,12 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { FullResponse } from "../lib/api";
-import { FigSize, Orientation, RestructuredLayout } from "../lib/layout";
+import {
+  Layout,
+  FigSize,
+  Orientation,
+  RestructuredLayout,
+} from "../lib/layout";
 import { History } from "./history";
 import { apiCalls } from "./apiCalls";
 
@@ -27,6 +32,7 @@ export interface LayoutActions {
   restructure: (resizedLayout: RestructuredLayout) => void;
   split: (path: number[], orient: Orientation) => Promise<void>;
   swap: (pA: string, pB: string) => Promise<void>;
+  reset: (l: Layout, fs: FigSize, msg?: string) => Promise<void>;
 }
 
 export const useLayoutActions = ({
@@ -51,7 +57,7 @@ export const useLayoutActions = ({
       const res = await history.executeAction("DELETE", (l, f) =>
         apiCalls.delete(l, path, sessionToken)
       );
-      syncUI(res, "Deleted successfully");
+      res && syncUI(res, "Deleted successfully");
     },
 
     merge: async (pA: string, pB: string) => {
@@ -61,7 +67,7 @@ export const useLayoutActions = ({
       const res = await history.executeAction("MERGE", (l, f) =>
         apiCalls.merge(pathA, pathB, sessionToken)
       );
-      syncUI(res, "Merged successfully");
+      res && syncUI(res, "Merged successfully");
     },
 
     insert: async (
@@ -73,21 +79,21 @@ export const useLayoutActions = ({
       const res = await history.executeAction("INSERT", (l, f) =>
         apiCalls.insert(path, orient, ratios, value, sessionToken)
       );
-      syncUI(res, "Inserted successfully");
+      res && syncUI(res, "Inserted successfully");
     },
 
     replace: async (path: number[], value: string) => {
       const res = await history.executeAction("REPLACE", (l, f) =>
         apiCalls.replace(l, path, value, sessionToken)
       );
-      syncUI(res, "Replaced successfully");
+      res && syncUI(res, "Replaced successfully");
     },
 
     resize: async (targetSize: FigSize) => {
       const res = await history.executeAction("RESIZE", (l, f) =>
         apiCalls.resize(f, targetSize, sessionToken)
       );
-      syncUI(res, "Resized successfully");
+      res && syncUI(res, "Resized successfully");
     },
 
     restructure: async (restructuredLayout: RestructuredLayout) => {
@@ -98,14 +104,14 @@ export const useLayoutActions = ({
       const res = await history.executeAction("ROTATE", (l, f) =>
         apiCalls.rotate(path, sessionToken)
       );
-      syncUI(res, "Rotated successfully");
+      res && syncUI(res, "Rotated successfully");
     },
 
     split: async (path: number[], orient: Orientation) => {
       const res = await history.executeAction("SPLIT", (l, f) =>
         apiCalls.split(path, orient, sessionToken)
       );
-      syncUI(res, "Split successfully");
+      res && syncUI(res, "Split successfully");
     },
 
     swap: async (pA: string, pB: string) => {
@@ -115,7 +121,14 @@ export const useLayoutActions = ({
       const res = await history.executeAction("SWAP", (l, f) =>
         apiCalls.swap(pathA, pathB, sessionToken)
       );
-      syncUI(res, "Swapped successfully");
+      res && syncUI(res, "Swapped successfully");
+    },
+
+    reset: async (layout: Layout, figsize: FigSize, msg?: string) => {
+      const res = await history.executeAction("RESET", (l, f) =>
+        apiCalls.render(layout, figsize, sessionToken)
+      );
+      res && syncUI(res, msg);
     },
   };
 };

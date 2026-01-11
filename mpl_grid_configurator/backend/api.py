@@ -6,7 +6,7 @@ import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from copy import deepcopy
-from typing import TYPE_CHECKING, Annotated, TypeVar
+from typing import Annotated, TypeVar
 
 from fastapi import Depends, FastAPI, HTTPException
 
@@ -37,11 +37,8 @@ from mpl_grid_configurator.layout_editor import LayoutEditor
 from mpl_grid_configurator.merge import MergeError
 from mpl_grid_configurator.merge_editor import merge, unmerge
 from mpl_grid_configurator.register import DRAW_FUNCS
-from mpl_grid_configurator.render import render_layout, render_svg
+from mpl_grid_configurator.render import render_layout
 from mpl_grid_configurator.traverse import are_nodes_equal
-
-if TYPE_CHECKING:
-    from mpl_grid_configurator.types import SubFigure_
 
 R = TypeVar("R")
 logger = logging.getLogger()
@@ -73,7 +70,7 @@ class MainApi:
     @staticmethod
     async def render(
         layout_request: LayoutRequest, session: Annotated[Session, Depends(get_session)]
-    ) -> SVGResponse:
+    ) -> FullResponse:
         """Render a layout."""
         layout, figsize = layout_request["layout"], layout_request["figsize"]
 
@@ -81,26 +78,20 @@ class MainApi:
         if d:
             logger.warning("Session already has data, fast-tracking")
 
-            def fast_callback() -> SVGResponse:
-                svg = render_svg(d.fig, d.svg_callback)
-                return {"token": session.token, "svg": svg}
-
             if figsize == d.figsize and are_nodes_equal(d.layout, layout):
-                return await wrapped(fast_callback, "rendering without changes")
+                return await wrapped(session.response, "rendering without changes")
 
-        def callback() -> SVGResponse:
+        def callback() -> FullResponse:
             fig, svg_callback = render_layout(layout, figsize, DRAW_FUNCS)
-            fixed_svg = render_svg(fig, svg_callback)
-            subfigs: dict[str, list[SubFigure_]] = {}
 
             session.data = SessionData(
                 layout=layout,
                 figsize=figsize,
                 fig=fig,
-                subfigs=subfigs,
+                subfigs={},
                 svg_callback=svg_callback,
             )
-            return {"token": session.token, "svg": fixed_svg}
+            return session.response()
 
         return await wrapped(callback, "rendering")
 
@@ -178,6 +169,7 @@ class EditApi:
         """Merge two paths."""
         d = session.fdata
         path1, path2 = paths_request["pathA"], paths_request["pathB"]
+
         try:
             d.layout, d.fig, inverse, d.svg_callback = merge(
                 d.layout, d.fig, path1, path2, d.subfigs, d.svg_callback

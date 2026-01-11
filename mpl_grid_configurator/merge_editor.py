@@ -28,6 +28,7 @@ def merge(  # noqa: PLR0913
     """Merge two non-sibling nodes to a new parent."""
     if isinstance(layout, str):
         raise ValueError("Cannot merge root")  # noqa: TRY004
+
     target_layout, lca_path = merge_paths(layout, path1, path2)
     rebuilt, forward, backward = rebuild(layout, lca_path, target_layout)
     rebuilt2, backward2, forward_removed = apply_to_layout(layout, forward)
@@ -42,7 +43,7 @@ def merge(  # noqa: PLR0913
         svg_callback,
     )
 
-    return layout, root, backward, svg_callback
+    return target_layout, root, backward, svg_callback
 
 
 def unmerge(
