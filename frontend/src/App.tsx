@@ -1,19 +1,14 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { debounce } from "lodash";
-import { Toaster, toast } from "sonner";
+import React, { useState, useEffect } from "react";
+import { Toaster } from "sonner";
 import InitialLoader from "./components/InitialLoader";
 import Sidebar from "./components/Sidebar";
 import Workspace from "./components/Workspace";
-import { api } from "./lib/api";
-import {
-  STORAGE_KEYS,
-  DEFAULT_LAYOUT,
-  DEFAULT_FIGSIZE,
-  RENDER_DEBOUNCE,
-} from "./lib/const";
+import { useLayoutActions } from "./lib/actions";
+import { STORAGE_KEYS, DEFAULT_LAYOUT, DEFAULT_FIGSIZE } from "./lib/const";
 import useHistory from "./lib/history";
 import useInit from "./lib/init";
-import { Layout, FigSize } from "./lib/layout";
+import { FigSize } from "./lib/layout";
+import { useRestructure } from "./lib/restructure";
 
 const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
@@ -25,17 +20,23 @@ const App: React.FC = () => {
   const [showOverlay, setShowOverlay] = useState(true);
   const [zoom, setZoom] = useState(1);
 
-  const { state, setPresent, undo, redo, canUndo, canRedo, resetHistory } =
-    useHistory(
-      localStorage.getItem(STORAGE_KEYS.LAYOUT)
-        ? JSON.parse(localStorage.getItem(STORAGE_KEYS.LAYOUT)!)
-        : DEFAULT_LAYOUT,
-      localStorage.getItem(STORAGE_KEYS.FIGSIZE)
-        ? JSON.parse(localStorage.getItem(STORAGE_KEYS.FIGSIZE)!)
-        : DEFAULT_FIGSIZE
-    );
+  const history = useHistory({
+    initialLayout: localStorage.getItem(STORAGE_KEYS.LAYOUT)
+      ? JSON.parse(localStorage.getItem(STORAGE_KEYS.LAYOUT)!)
+      : DEFAULT_LAYOUT,
+    initialFigsize: localStorage.getItem(STORAGE_KEYS.FIGSIZE)
+      ? JSON.parse(localStorage.getItem(STORAGE_KEYS.FIGSIZE)!)
+      : DEFAULT_FIGSIZE,
+  });
 
+  const { state, setPresent } = history;
   const { layout, figsize } = state;
+
+  useEffect(() => {
+    if (typeof figsize !== "object") {
+      setPresent(layout, DEFAULT_FIGSIZE);
+    }
+  }, [layout, figsize, setPresent]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.FIGSIZE, JSON.stringify(figsize));
@@ -48,33 +49,21 @@ const App: React.FC = () => {
     setFigsizePreview(figsize);
   }, [figsize]);
 
-  const renderLayout = useMemo(
-    () =>
-      debounce(async (l: Layout, fs: FigSize, tok: string | null) => {
-        const data = await api.render(l, fs, tok);
-        if (data) setSvgContent(data.svg);
-      }, RENDER_DEBOUNCE),
-    []
-  );
+  const { restructureCallback } = useRestructure({
+    layout,
+    figsize,
+    sessionToken,
+    setPresent,
+    setSvgContent,
+    executeAction: history.executeAction,
+  });
 
-  const mergeCallback = async (pA: string, pB: string) => {
-    const pathA = pA.split("-").slice(1).map(Number);
-    const pathB = pB.split("-").slice(1).map(Number);
-
-    const data = await api.merge(layout, figsize, pathA, pathB, sessionToken);
-
-    if (data) {
-      setPresent(data.layout, figsize);
-      setSvgContent(data.svg);
-      toast.success("Merge successful!");
-    }
-  };
-
-  useEffect(() => {
-    if (isInitializing || !sessionToken) return;
-    renderLayout(layout, figsize, sessionToken);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layout, figsize, renderLayout]);
+  const actions = useLayoutActions({
+    sessionToken,
+    history,
+    setSvgContent,
+    restructureCallback,
+  });
 
   // Consolidated Initialization
   useInit({
@@ -83,7 +72,6 @@ const App: React.FC = () => {
     setSessionToken,
     layout,
     figsize,
-    renderLayout,
     setFuncs,
     setSvgContent,
   });
@@ -97,17 +85,14 @@ const App: React.FC = () => {
           figsize={figsize}
           figsizePreview={figsizePreview}
           setFigsizePreview={setFigsizePreview}
-          commitFigsize={() => setPresent(layout, figsizePreview)}
           zoom={zoom}
           setZoom={setZoom}
           showOverlay={showOverlay}
           setShowOverlay={setShowOverlay}
-          handleReset={(l: Layout, fs: FigSize) => resetHistory(l, fs)}
           svgContent={svgContent}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          onUndo={undo}
-          onRedo={redo}
+          setSvgContent={setSvgContent}
+          history={history}
+          actions={actions}
         />
 
         <main className="relative flex-1 bg-[#0f172a] overflow-hidden">
@@ -115,15 +100,15 @@ const App: React.FC = () => {
             <InitialLoader />
           ) : (
             <Workspace
-              setPresent={setPresent}
               layout={layout}
               figsize={figsize}
               figsizePreview={figsizePreview}
               showOverlay={showOverlay}
               svgContent={svgContent}
+              setSvgContent={setSvgContent}
               zoom={zoom}
               funcs={funcs}
-              mergeCallback={mergeCallback}
+              actions={actions}
             />
           )}
         </main>

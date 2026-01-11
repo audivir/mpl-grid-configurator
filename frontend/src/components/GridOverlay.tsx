@@ -1,18 +1,16 @@
-import { useState, SetStateAction } from "react";
+import { useState } from "react";
 import { cn } from "react-lib-tools";
 import { Group, Panel, Separator } from "react-resizable-panels";
-import { Columns, Rows, Grip, Trash2, Merge } from "lucide-react";
-import gridCallbacks from "../lib/callbacks";
+import { Columns, Rows, Grip, Trash2, Merge, RotateCcw } from "lucide-react";
+import { LayoutActions } from "../lib/actions";
 import { FigSize, Layout } from "../lib/layout";
 
 interface GridOverlayProps {
-  setPresent: (l: Layout, fs: FigSize) => void;
   layout: Layout;
   figsize: FigSize;
   zoom: number;
   funcs: string[];
-  resizeDebounce: number;
-  mergeCallback: (pA: string, pB: string) => void;
+  actions: LayoutActions;
 }
 
 interface RecursiveGridProps {
@@ -46,24 +44,13 @@ const DragButton: React.FC<DragButtonProps> = ({
 };
 
 const GridOverlay: React.FC<GridOverlayProps> = ({
-  setPresent,
   layout,
-  figsize,
   zoom,
   funcs,
-  resizeDebounce,
-  mergeCallback,
+  actions,
 }) => {
   const [swapPathId, setSwapPathId] = useState<string | null>(null);
   const [mergePathId, setMergePathId] = useState<string | null>(null);
-
-  const setLayout = (next: SetStateAction<Layout>) => {
-    const value = typeof next === "function" ? next(layout) : next;
-    setPresent(value, figsize);
-  };
-
-  const { handleSwap, handleSplit, handleLeaf, handleDelete, handleResize } =
-    gridCallbacks({ layout, setLayout, resizeDebounce });
 
   const RecursiveGrid: React.FC<RecursiveGridProps> = ({ node, path }) => {
     const [isOver, setIsOver] = useState(false);
@@ -84,8 +71,8 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
             // If the dragged object set the swapPathId, swap them.
             if (swapPathId && mergePathId)
               throw new Error("Cannot swap and merge at the same time");
-            if (swapPathId) handleSwap(swapPathId, pathId);
-            if (mergePathId) mergeCallback(mergePathId, pathId);
+            if (swapPathId) actions.swap(swapPathId, pathId);
+            if (mergePathId) actions.merge(mergePathId, pathId);
           }}
           className={cn(
             "relative w-full h-full border border-blue-500/10 transition-all group pointer-events-auto",
@@ -97,7 +84,7 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
             <button
               title="Split Horizontal"
               className="absolute top-2 right-2 p-1.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-500 hover:bg-blue-500 hover:text-white origin-top-right transition-all pointer-events-auto opacity-0 group-hover:opacity-100"
-              onClick={() => handleSplit(path, "row")}
+              onClick={() => actions.split(path, "row")}
               style={{ transform: `scale(${1 / zoom})` }}
             >
               <Columns size={14} />
@@ -117,17 +104,6 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
                   }}
                 />
               )}
-              <select
-                className="text-[11px] font-bold text-slate-700 bg-transparent border-none focus:ring-0 cursor-pointer outline-none px-1"
-                value={node}
-                onChange={(e) => handleLeaf(path, e.target.value)}
-              >
-                {funcs.map((f) => (
-                  <option key={f} value={f}>
-                    {f}
-                  </option>
-                ))}
-              </select>
               {path.length > 0 && (
                 <DragButton
                   icon={Merge}
@@ -137,10 +113,30 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
                   }}
                 />
               )}
+              <select
+                className="text-[11px] font-bold text-slate-700 bg-transparent border-none focus:ring-0 cursor-pointer outline-none px-1"
+                value={node}
+                onChange={(e) => actions.replace(path, e.target.value)}
+              >
+                {funcs.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+              {path.length > 0 && (
+                <button
+                  className="p-1 text-blue-400 hover:text-blue-600"
+                  onClick={() => actions.rotate(path.slice(0, -1))}
+                >
+                  <RotateCcw size={14} />
+                </button>
+              )}
+
               {path.length > 0 && (
                 <button
                   className="p-1 text-red-400 hover:text-red-600"
-                  onClick={() => handleDelete(path)}
+                  onClick={() => actions.delete(path)}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -150,7 +146,7 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
             <button
               title="Split Vertical"
               className="absolute bottom-2 left-2 p-1.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-500 hover:bg-blue-500 hover:text-white origin-bottom-left transition-all pointer-events-auto opacity-0 group-hover:opacity-100"
-              onClick={() => handleSplit(path, "column")}
+              onClick={() => actions.split(path, "column")}
               style={{ transform: `scale(${1 / zoom})` }}
             >
               <Rows size={14} />
@@ -163,7 +159,7 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
       <Group
         orientation={node.orient === "row" ? "horizontal" : "vertical"}
         className="w-full h-full"
-        onLayoutChange={handleResize}
+        onLayoutChange={actions.restructure}
       >
         <Panel defaultSize={node.ratios[0]} id={pathId + "-0"}>
           <RecursiveGrid node={node.children[0]} path={[...path, 0]} />

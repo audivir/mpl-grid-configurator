@@ -1,99 +1,196 @@
 import { toast } from "sonner";
 import { API_BASE } from "./const";
-import { FigSize, Layout } from "./layout";
+import { FigSize, Layout, Orientation, RestructureInfo } from "./layout";
 
-/**
- * Parses FastAPI error details
- */
+// Standard response for layout-modifying operations
+export interface FullResponse {
+  token: string;
+  figsize: FigSize;
+  layout: Layout;
+  svg: string;
+}
+
+interface MergeResponse extends FullResponse {
+  inverse: [string, { [key: string]: any }][];
+}
+
 const getErrorMessage = async (response: Response): Promise<string> => {
   try {
     const data = await response.json();
-    if (typeof data.detail === "string") return data.detail;
-    if (Array.isArray(data.detail)) return data.detail[0].msg;
-    return "An unexpected error occurred.";
+    return typeof data.detail === "string"
+      ? data.detail
+      : data.detail?.[0]?.msg || "Unknown error";
   } catch {
     return `Server Error: ${response.statusText}`;
   }
 };
 
 /**
- * Backend API wrapper with forwarding errors to toast
+ * Optimized Fetch Wrapper
  */
-async function apiFetch<T>(
+async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {},
-  sessionToken: string | null = null,
-  errorTitle = "Request Failed"
+  method: "GET" | "POST",
+  body?: any,
+  token?: string | null,
+  errorTitle = "Error"
 ): Promise<T | null> {
   try {
+    console.log("API Request", endpoint, method, body, token, errorTitle);
     const response = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
+      method,
       headers: {
         "Content-Type": "application/json",
-        ...options.headers,
-        Authorization: sessionToken ? `Bearer ${sessionToken}` : "",
+        ...(token && { Authorization: `Bearer ${token}` }),
       },
+      ...(body && { body: JSON.stringify(body) }),
     });
 
     if (!response.ok) {
-      const detail = await getErrorMessage(response);
-      toast.error(errorTitle, { description: detail });
+      const description = await getErrorMessage(response);
+      toast.error(errorTitle, { description });
       return null;
     }
 
     return await response.json();
   } catch (error) {
     toast.error("Network Error", {
-      description: "Could not connect to the backend server.",
+      description: "Connection to backend lost.",
     });
     return null;
   }
 }
 
-/**
- * API calls to backend
- */
 export const api = {
-  healthCheck: (tok: string | null) =>
-    apiFetch<boolean>("/health", { method: "GET" }, tok, "Health Check Failed"),
+  // Main API
+  functions: () =>
+    apiRequest<string[]>("/functions", "GET", null, null, "Functions Failed"),
 
-  createSession: (l: Layout, fs: FigSize) =>
-    apiFetch<{ token: string; svg: string }>("/session", {
-      method: "POST",
-      body: JSON.stringify({ layout: l, figsize: [fs.w, fs.h] }),
-    }),
-
-  getFunctions: () => apiFetch<string[]>("/functions", { method: "GET" }),
+  health: (tok: string | null) =>
+    apiRequest<boolean>("/health", "GET", null, tok, "Health Failed"),
 
   render: (l: Layout, fs: FigSize, tok: string | null) =>
-    apiFetch<{ token: string; svg: string }>(
+    apiRequest<FullResponse>(
       "/render",
-      {
-        method: "POST",
-        body: JSON.stringify({ layout: l, figsize: [fs.w, fs.h] }),
-      },
+      "POST",
+      { layout: l, figsize: fs },
       tok,
       "Render Failed"
     ),
 
-  merge: (
-    l: Layout,
-    fs: FigSize,
-    pA: number[],
-    pB: number[],
-    tok: string | null
-  ) =>
-    apiFetch<{ token: string; layout: Layout; svg: string }>(
-      "/merge",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          layout_data: { layout: l, figsize: [fs.w, fs.h] },
-          path_a: pA,
-          path_b: pB,
-        }),
-      },
-      tok,
-      "Merge Failed"
-    ),
+  session: (l: Layout, fs: FigSize) => {
+    console.log("Session Request", l, fs);
+    return apiRequest<FullResponse>(
+      "/session",
+      "POST",
+      { layout: l, figsize: fs },
+      null,
+      "Session Failed"
+    );
+  },
+
+  edit: {
+    delete: (path: number[], tok: string | null) =>
+      apiRequest<FullResponse>(
+        "/edit/delete",
+        "POST",
+        { path },
+        tok,
+        "Delete Failed"
+      ),
+
+    insert: (
+      path: number[],
+      orient: Orientation,
+      ratios: number[],
+      value: string,
+      tok: string | null
+    ) =>
+      apiRequest<FullResponse>(
+        "/edit/insert",
+        "POST",
+        { path, orient, ratios, value },
+        tok,
+        "Insert Failed"
+      ),
+
+    merge: (pathA: number[], pathB: number[], tok: string | null) =>
+      apiRequest<MergeResponse>(
+        "/edit/merge",
+        "POST",
+        { pathA, pathB },
+        tok,
+        "Merge Failed"
+      ),
+
+    replace: (path: number[], value: string, tok: string | null) =>
+      apiRequest<FullResponse>(
+        "/edit/replace",
+        "POST",
+        { path, value },
+        tok,
+        "Replace Failed"
+      ),
+
+    resize: (fs: FigSize, tok: string | null) =>
+      apiRequest<FullResponse>(
+        "/edit/resize",
+        "POST",
+        { figsize: fs },
+        tok,
+        "Resize Failed"
+      ),
+
+    restructure: (
+      r: RestructureInfo | null,
+      c: RestructureInfo | null,
+      tok: string | null
+    ) =>
+      apiRequest<FullResponse>(
+        "/edit/restructure",
+        "POST",
+        { rowRestructureInfo: r, columnRestructureInfo: c },
+        tok,
+        "Restructure Failed"
+      ),
+
+    rotate: (path: number[], tok: string | null) =>
+      apiRequest<FullResponse>(
+        "/edit/rotate",
+        "POST",
+        { path },
+        tok,
+        "Rotate Failed"
+      ),
+
+    split: (path: number[], orient: Orientation, tok: string | null) =>
+      apiRequest<FullResponse>(
+        "/edit/split",
+        "POST",
+        { path, orient },
+        tok,
+        "Split Failed"
+      ),
+
+    swap: (pathA: number[], pathB: number[], tok: string | null) =>
+      apiRequest<FullResponse>(
+        "/edit/swap",
+        "POST",
+        { pathA, pathB },
+        tok,
+        "Swap Failed"
+      ),
+
+    unmerge: (
+      inverse: [string, { [key: string]: any }][],
+      tok: string | null
+    ) =>
+      apiRequest<FullResponse>(
+        "/edit/unmerge",
+        "POST",
+        { inverse },
+        tok,
+        "Unmerge Failed"
+      ),
+  },
 };

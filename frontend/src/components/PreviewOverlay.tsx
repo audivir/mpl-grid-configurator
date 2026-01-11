@@ -7,8 +7,8 @@ interface PreviewOverlayProps {
 }
 
 const PreviewOverlay: React.FC<PreviewOverlayProps> = ({ figsize }) => {
-  const width = `${figsize.w * DEFAULT_DPI}px`;
-  const height = `${figsize.h * DEFAULT_DPI}px`;
+  const width = `${figsize[0] * DEFAULT_DPI}px`;
+  const height = `${figsize[1] * DEFAULT_DPI}px`;
 
   return (
     <div
@@ -16,7 +16,7 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({ figsize }) => {
       style={{ width, height }}
     >
       <div className="absolute bottom-2 right-2 text-xs font-bold text-blue-500 bg-white/80 px-1 rounded">
-        {figsize.w} x {figsize.h}
+        {figsize[0]} x {figsize[1]}
       </div>
     </div>
   );

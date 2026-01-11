@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import inspect
-from collections.abc import Callable, Iterator, MutableMapping
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
@@ -21,8 +21,6 @@ from matplotlib.figure import Figure, SubFigure  # noqa: TC002
 from typing_extensions import TypedDict, TypeIs
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from matplotlib.axes import Axes
     from matplotlib.gridspec import SubplotSpec
 
@@ -43,12 +41,13 @@ if TYPE_CHECKING:
         _subplotspec: SubplotSpec_
         subfigs: list[SubFigure_]  # type: ignore[assignment]
 
+    OptFigureT = TypeVar("OptFigureT", Figure_, None)
 
 T = TypeVar("T")
 
 
-AxesDrawFunc: TypeAlias = "Callable[[Figure | SubFigure], Axes]"
-TupleDrawFunc: TypeAlias = "Callable[[Figure | SubFigure], tuple[str, Axes]]"
+AxesDrawFunc: TypeAlias = "Callable[[SubFigure_], Axes]"
+TupleDrawFunc: TypeAlias = "Callable[[SubFigure_], tuple[str, Axes]]"
 StrDrawFunc: TypeAlias = Callable[[], str]
 DrawFunc: TypeAlias = "AxesDrawFunc | TupleDrawFunc | StrDrawFunc"
 DrawFuncT = TypeVar("DrawFuncT", bound=DrawFunc)
@@ -64,65 +63,15 @@ class LayoutNode(TypedDict):
     ratios: tuple[float, float]
 
 
-LayoutT = TypeVar("LayoutT", LayoutNode, str)
 Layout: TypeAlias = LayoutNode | str
+LayoutT = TypeVar("LayoutT", LayoutNode, str, Layout)
 
-LayoutNode({"orient": "row", "children": ("a", "b"), "ratios": (1, 1)})
+FigTree: TypeAlias = "tuple[str, int, int, tuple[FigTree, ...]]"
 
-
-class LayoutRequest(TypedDict):
-    """Layout and figure size."""
-
-    layout: Layout
-    figsize: tuple[float, float]
-
-
-class TokenResponse(TypedDict):
-    """Token response."""
-
-    token: str
-
-
-class SVGResponse(TokenResponse):
-    """SVG response."""
-
-    svg: str
-
-
-class LayoutResponse(TokenResponse):
-    """Layout response."""
-
-    layout: Layout
-
-
-class FullResponse(TokenResponse):
-    """Response containing both layout and svg."""
-
-    svg: str
-    layout: Layout
-
-
-class SessionData(TypedDict):
-    """Session figure."""
-
-    figsize: tuple[float, float]
-    layout: Layout
-    fig: Figure
-    svg_callback: Callable[[str], str]
-
-
-class Session(TypedDict):
-    """Session."""
-
-    token: str
-    data: SessionData | None
-
-
-class Payload(TypedDict):
-    """JWT payload."""
-
-    sub: str
-    exp: datetime
+ChangeKey: TypeAlias = Literal[
+    "delete", "insert", "replace", "restructure", "rotate", "split", "swap"
+]
+Change: TypeAlias = tuple[ChangeKey, tuple[int, ...], dict[str, Any]]
 
 
 @dataclass
@@ -149,16 +98,6 @@ class BoundingBox(NamedTuple):
     x_max: float
     y_min: float
     y_max: float
-
-
-BoundingBoxMappingT = TypeVar("BoundingBoxMappingT", bound=MutableMapping[str, BoundingBox])
-
-
-class Touch(NamedTuple):
-    """Touching edges (orient, full)."""
-
-    orient: Orientation
-    touch_ratio: float
 
 
 def is_tuple_draw_func(func: DrawFuncT) -> TypeIs[TupleDrawFunc]:  # type: ignore[narrowed-type-not-subtype]

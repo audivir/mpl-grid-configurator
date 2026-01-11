@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from mpl_grid_configurator.render import draw_empty
+
 if TYPE_CHECKING:
     from mpl_grid_configurator.types import DrawFunc, DrawFuncT
 
@@ -54,3 +56,6 @@ def register(func: DrawFuncT) -> DrawFuncT:
     DRAW_FUNCS[name] = func
 
     return func
+
+
+register(draw_empty)

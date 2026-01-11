@@ -2,17 +2,26 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
-from typing import TYPE_CHECKING, Literal
+from copy import deepcopy
+from typing import TYPE_CHECKING
 
-from mpl_grid_configurator.traverse import get_lca, get_leaf, set_node
-from mpl_grid_configurator.types import BoundingBox, Edge, LayoutNode, LayoutT, Orientation
+from mpl_grid_configurator.traverse import (
+    adjust_node_id,
+    almost_equal,
+    find_path_by_id,
+    get_lca,
+    get_leaf,
+    set_node,
+)
+from mpl_grid_configurator.types import BoundingBox, Edge, Layout, LayoutNode, Orientation
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
+logger = logging.getLogger(__name__)
 
-EPSILON = 1e-9
 MIN_TOUCH_RATIO = 0.9
 
 
@@ -24,69 +33,6 @@ class MergeError(ValueError):
     """Invalid leafs selected for merge."""
 
 
-def almost_equal(a: float, b: float) -> bool:
-    """Check if two floats are almost equal."""
-    return abs(a - b) < EPSILON
-
-
-def less_than(a: float, b: float) -> bool:
-    """Check if a is less than b by more than epsilon."""
-    return a < b - EPSILON
-
-
-def more_than(a: float, b: float) -> bool:
-    """Check if a is greater than b by more than epsilon."""
-    return a > b + EPSILON
-
-
-def adjust_node_id(node: LayoutT, mode: Literal["add", "remove"] = "add") -> LayoutT:
-    """Add or remove a unique id to every node.
-
-    Returns:
-        A copy of the node with adjusted ids.
-    """
-    if isinstance(node, str):
-        if mode == "add":
-            return f"{node}:::{uuid.uuid4()}"
-        return node.rsplit(":::", 1)[0]
-    children = node["children"]
-    return {
-        "orient": node["orient"],
-        "children": (adjust_node_id(children[0], mode), adjust_node_id(children[1], mode)),  # type: ignore[type-var]
-        "ratios": node["ratios"],
-    }
-
-
-def find_path_by_id(
-    node: LayoutNode | str,
-    id_to_find: str,
-    path: tuple[int, ...] = (),
-    *,
-    use_full_id: bool = False,
-) -> tuple[int, ...] | None:
-    """Find the path to the node with the given id.
-
-    Args:
-        node: The node to search in.
-        id_to_find: The id to search for.
-        path: The current path.
-        use_full_id: Whether to use the full id (function name + optional uuid)
-            or just the uuid.
-
-    Returns:
-        The path to the node with the given id or None if no such node exists.
-    """
-    if isinstance(node, str):
-        curr_id = node if use_full_id else node.rsplit(":::", 1)[1]
-        return path if curr_id == id_to_find else None
-
-    for ix, child in enumerate(node["children"]):
-        result = find_path_by_id(child, id_to_find, (*path, ix), use_full_id=use_full_id)
-        if result is not None:
-            return result
-    return None
-
-
 def get_edge(bbox: BoundingBox, orient: Orientation) -> Edge:
     """Get the edge of a bounding box."""
     if orient == "row":
@@ -95,7 +41,7 @@ def get_edge(bbox: BoundingBox, orient: Orientation) -> Edge:
 
 
 def get_bbox_mapping(
-    node: LayoutNode | str,
+    node: Layout,
     bbox: BoundingBox | None = None,
     mapping: Mapping[str, BoundingBox] | None = None,
 ) -> dict[str, BoundingBox]:
@@ -130,11 +76,11 @@ def get_bbox_mapping(
 
     orient = node["orient"]
     is_row = orient == "row"
-    ratio_a, ratio_b = node["ratios"]
-    total = ratio_a + ratio_b
+    ratio1, ratio2 = node["ratios"]
+    total = ratio1 + ratio2
 
     for child, start_ratio, end_ratio in zip(
-        node["children"], (0, ratio_a / total), (ratio_a / total, 1), strict=True
+        node["children"], (0, ratio1 / total), (ratio1 / total, 1), strict=True
     ):
         x_edge, y_edge = get_edge(bbox, "row"), get_edge(bbox, "column")
         edge, other = (x_edge, y_edge) if is_row else (y_edge, x_edge)
@@ -147,7 +93,7 @@ def get_bbox_mapping(
     return mapping
 
 
-def are_bboxes_touching(bbox_a: BoundingBox, bbox_b: BoundingBox) -> Orientation | None:
+def are_bboxes_touching(bbox1: BoundingBox, bbox2: BoundingBox) -> Orientation | None:
     """Evaluate if and how two bounding boxes touch.
 
     Returns:
@@ -156,39 +102,46 @@ def are_bboxes_touching(bbox_a: BoundingBox, bbox_b: BoundingBox) -> Orientation
     Raises:
         ValueError: If the bounding boxes touch in both directions
     """
-    x_touch = almost_equal(bbox_a.x_max, bbox_b.x_min) or almost_equal(bbox_b.x_max, bbox_a.x_min)
-    y_touch = almost_equal(bbox_a.y_max, bbox_b.y_min) or almost_equal(bbox_b.y_max, bbox_a.y_min)
+    x_touch = almost_equal(bbox1.x_max, bbox2.x_min) or almost_equal(bbox2.x_max, bbox1.x_min)
+    y_touch = almost_equal(bbox1.y_max, bbox2.y_min) or almost_equal(bbox2.y_max, bbox1.y_min)
 
     if not (x_touch or y_touch):
+        logger.debug("Bounding boxes do not touch")
         return None
 
     if x_touch and y_touch:
-        raise ValueError("touches in both directions")
+        logger.debug("Bounding boxes share only a corner")
+        return None
 
     children_orient: Orientation = "row" if x_touch else "column"
     edge_orient: Orientation = "column" if x_touch else "row"
-    edge_a, edge_b = get_edge(bbox_a, edge_orient), get_edge(bbox_b, edge_orient)
-    overlap_min = max(edge_a.min, edge_b.min)
-    overlap_max = min(edge_a.max, edge_b.max)
+    edge1, edge2 = get_edge(bbox1, edge_orient), get_edge(bbox2, edge_orient)
+    overlap_min = max(edge1.min, edge2.min)
+    overlap_max = min(edge1.max, edge2.max)
     overlap = max(0, overlap_max - overlap_min)
-    min_size = min(edge_a.size, edge_b.size)
+    min_size = min(edge1.size, edge2.size)
+
+    if not overlap:
+        logger.debug("Bounding boxes do not overlap")
+        return None
 
     if overlap / min_size < MIN_TOUCH_RATIO:
+        logger.debug("Bounding boxes do not overlap enough")
         return None
     return children_orient
 
 
-def merge_bboxes(bbox_a: BoundingBox, bbox_b: BoundingBox) -> BoundingBox:
+def merge_bboxes(bbox1: BoundingBox, bbox2: BoundingBox) -> BoundingBox:
     """Merge two bounding boxes."""
     return BoundingBox(
-        min(bbox_a.x_min, bbox_b.x_min),
-        max(bbox_a.x_max, bbox_b.x_max),
-        min(bbox_a.y_min, bbox_b.y_min),
-        max(bbox_a.y_max, bbox_b.y_max),
+        min(bbox1.x_min, bbox2.x_min),
+        max(bbox1.x_max, bbox2.x_max),
+        min(bbox1.y_min, bbox2.y_min),
+        max(bbox1.y_max, bbox2.y_max),
     )
 
 
-def _get_size(bbox_mapping: Mapping[str, BoundingBox], orient: Orientation) -> float:
+def get_bbox_size(bbox_mapping: Mapping[str, BoundingBox], orient: Orientation) -> float:
     """Get the size of the given bounding boxes in the given orientation."""
     return max(r.x_max if orient == "row" else r.y_max for r in bbox_mapping.values()) - min(
         r.x_min if orient == "row" else r.y_min for r in bbox_mapping.values()
@@ -205,20 +158,20 @@ def binary_space_partitioning(bbox_mapping: Mapping[str, BoundingBox]) -> Layout
 
     def build_node(
         orient: Orientation,
-        map_a: Mapping[str, BoundingBox],
-        map_b: Mapping[str, BoundingBox],
+        map1: Mapping[str, BoundingBox],
+        map2: Mapping[str, BoundingBox],
     ) -> LayoutNode:
         """Build a node from the given bounding boxes."""
-        size_a = _get_size(map_a, orient)
-        size_b = _get_size(map_b, orient)
-        total = size_a + size_b
+        size1 = get_bbox_size(map1, orient)
+        size2 = get_bbox_size(map2, orient)
+        total = size1 + size2
         return LayoutNode(
             orient=orient,
             children=(
-                binary_space_partitioning(map_a),
-                binary_space_partitioning(map_b),
+                binary_space_partitioning(map1),
+                binary_space_partitioning(map2),
             ),
-            ratios=(100 * size_a / total, 100 * size_b / total),
+            ratios=(100 * size1 / total, 100 * size2 / total),
         )
 
     if not bbox_mapping:
@@ -262,10 +215,10 @@ def binary_space_partitioning(bbox_mapping: Mapping[str, BoundingBox]) -> Layout
 
 
 def rectify_bbox(
-    bbox_to_rectify: BoundingBox,
+    to_rectify: BoundingBox,
     orient: Orientation,
-    bbox_a: BoundingBox,
-    bbox_b: BoundingBox,
+    bbox1: BoundingBox,
+    bbox2: BoundingBox,
 ) -> BoundingBox:
     """Update bounding boxes along the non-touching axis.
 
@@ -277,41 +230,50 @@ def rectify_bbox(
     """
     other_orient: Orientation = "column" if orient == "row" else "row"
 
-    edge_a = get_edge(bbox_a, other_orient)
-    edge_b = get_edge(bbox_b, other_orient)
+    edge1 = get_edge(bbox1, other_orient)
+    edge2 = get_edge(bbox2, other_orient)
 
-    target_min = min(edge_a.min, edge_b.min)
-    target_max = max(edge_a.max, edge_b.max)
+    target_min = min(edge1.min, edge2.min)
+    target_max = max(edge1.max, edge2.max)
 
-    curr_edge_other = get_edge(bbox_to_rectify, other_orient)
-    curr_edge = get_edge(bbox_to_rectify, orient)
+    curr_edge_other = get_edge(to_rectify, other_orient)
+    curr_edge = get_edge(to_rectify, orient)
 
     # Check if this box's min or max was aligned with either node A or node B
     new_min, new_max = curr_edge_other.min, curr_edge_other.max
 
-    if almost_equal(new_min, edge_a.min) or almost_equal(new_min, edge_b.min):
+    if almost_equal(new_min, edge1.min) or almost_equal(new_min, edge2.min):
         new_min = target_min
-    if almost_equal(new_min, edge_a.max) or almost_equal(new_min, edge_b.max):
+    if almost_equal(new_min, edge1.max) or almost_equal(new_min, edge2.max):
         new_min = target_max
-    if almost_equal(new_max, edge_a.min) or almost_equal(new_max, edge_b.min):
+    if almost_equal(new_max, edge1.min) or almost_equal(new_max, edge2.min):
         new_max = target_min
-    if almost_equal(new_max, edge_a.max) or almost_equal(new_max, edge_b.max):
+    if almost_equal(new_max, edge1.max) or almost_equal(new_max, edge2.max):
         new_max = target_max
 
     new_rect_edge = Edge(new_min, new_max)
 
     # Reconstruct the BoundingBox
-    if orient == "row":
-        return BoundingBox(*curr_edge, *new_rect_edge)
-    return BoundingBox(*new_rect_edge, *curr_edge)
+    final = (
+        BoundingBox(*curr_edge, *new_rect_edge)
+        if orient == "row"
+        else BoundingBox(*new_rect_edge, *curr_edge)
+    )
+
+    if final.x_min == final.x_max or final.y_min == final.y_max:
+        raise ValueError("Invalid bounds, edge length is zero")
+
+    return final
 
 
 def merge_paths(
     root: LayoutNode,
-    path_a: tuple[int, ...],
-    path_b: tuple[int, ...],
-) -> LayoutNode:
+    path1: tuple[int, ...],
+    path2: tuple[int, ...],
+) -> tuple[LayoutNode, tuple[int, ...]]:
     """Merge two non-sibling, but fully touching leafs by their paths.
+
+    Does not mutate the input node.
 
     Returns:
         The updated layout
@@ -320,41 +282,46 @@ def merge_paths(
         ValueError: If no merged bounding box can be built
     """
     # sanity checks
-    if path_a[:-1] == path_b[:-1]:
-        if path_a[-1] == path_b[-1]:
+    if path1[:-1] == path2[:-1]:
+        if path1[-1] == path2[-1]:
             raise MergeError("Paths are the same")
         raise MergeError("Paths are already siblings")
 
+    root = deepcopy(root)
     root_with_id = adjust_node_id(root, mode="add")
-    lca, lca_path, adj_path_a, adj_path_b = get_lca(root_with_id, path_a, path_b)
+
+    lca, lca_path, adj_path1, adj_path2 = get_lca(root_with_id, path1, path2)
     bbox_mapping = get_bbox_mapping(lca)
 
-    leaf_a = get_leaf(lca, adj_path_a)
-    leaf_b = get_leaf(lca, adj_path_b)
+    leaf1 = get_leaf(lca, adj_path1)
+    leaf2 = get_leaf(lca, adj_path2)
 
-    bbox_a = bbox_mapping[leaf_a]
-    bbox_b = bbox_mapping[leaf_b]
+    bbox1 = bbox_mapping[leaf1]
+    bbox2 = bbox_mapping[leaf2]
 
-    orient = are_bboxes_touching(bbox_a, bbox_b)
+    orient = are_bboxes_touching(bbox1, bbox2)
 
     if orient is None:
         raise MergeError(
-            f"Bounding boxes must touch and overlap at least {int(100 * MIN_TOUCH_RATIO)} %."
+            f"Bounding boxes must touch and overlap at least {int(100 * MIN_TOUCH_RATIO)} %"
         )
 
-    rectified_mapping: dict[str, BoundingBox] = {}
-    for key, bbox in bbox_mapping.items():
-        rectified_mapping[key] = rectify_bbox(bbox, orient, bbox_a, bbox_b)
+    try:
+        rectified_mapping: dict[str, BoundingBox] = {}
+        for key, bbox in bbox_mapping.items():
+            rectified_mapping[key] = rectify_bbox(bbox, orient, bbox1, bbox2)
+    except ValueError as e:
+        raise MergeError("Rectification failed") from e
 
     # Update the local copies of A and B from the rectified mapping
-    rect_bbox_a = rectified_mapping[leaf_a]
-    rect_bbox_b = rectified_mapping[leaf_b]
-    merged_bbox = merge_bboxes(rect_bbox_a, rect_bbox_b)
+    rect_bbox1 = rectified_mapping[leaf1]
+    rect_bbox2 = rectified_mapping[leaf2]
+    merged_bbox = merge_bboxes(rect_bbox1, rect_bbox2)
 
     # Use the RECTIFIED mapping for the partitioner
     adj_bbox_map = dict(rectified_mapping)
-    del adj_bbox_map[leaf_a]
-    del adj_bbox_map[leaf_b]
+    del adj_bbox_map[leaf1]
+    del adj_bbox_map[leaf2]
 
     # Create a unique ID for the merged node placeholder
     node_id = str(uuid.uuid4())
@@ -370,30 +337,32 @@ def merge_paths(
         raise ValueError("Partitioning failed to create a node structure.")  # noqa: TRY004
 
     # Calculate ratios based on the rectified sizes
-    edge_a = get_edge(rect_bbox_a, orient)
-    edge_b = get_edge(rect_bbox_b, orient)
-    total = edge_a.size + edge_b.size
+    edge1 = get_edge(rect_bbox1, orient)
+    edge2 = get_edge(rect_bbox2, orient)
+    total = edge1.size + edge2.size
 
-    switch = edge_a.min > edge_b.min
+    switch = edge1.min > edge2.min
 
     if switch:
-        edge_a, edge_b = edge_b, edge_a
-        leaf_a, leaf_b = leaf_b, leaf_a
+        edge1, edge2 = edge2, edge1
+        leaf1, leaf2 = leaf2, leaf1
 
     new_node: LayoutNode = {
         "orient": orient,
-        "children": (leaf_a, leaf_b),
-        "ratios": (100 * edge_a.size / total, 100 * edge_b.size / total),
+        "children": (leaf1, leaf2),
+        "ratios": (100 * edge1.size / total, 100 * edge2.size / total),
     }
 
     new_node_path = find_path_by_id(partitioned_lca, node_id)
     if new_node_path is None:
         raise ValueError("Could not find path for new node")
 
-    set_node(partitioned_lca, new_node_path, new_node)
+    partitioned_lca = set_node(partitioned_lca, new_node_path, new_node)
 
-    if not lca_path:
-        return adjust_node_id(partitioned_lca, mode="remove")
+    # reinsert the partitioned LCA into the original root
+    new_root = set_node(root_with_id, lca_path, partitioned_lca)
 
-    set_node(root_with_id, lca_path, partitioned_lca)
-    return adjust_node_id(root_with_id, mode="remove")
+    # remove the id suffixes
+    new_root = adjust_node_id(new_root, mode="remove")
+
+    return new_root, lca_path

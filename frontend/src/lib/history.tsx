@@ -1,15 +1,40 @@
 import { useCallback, useReducer } from "react";
-import { Layout, FigSize, LayoutNode } from "../lib/layout";
+import { FullResponse } from "../lib/api";
+import { Layout, FigSize } from "../lib/layout";
+import { ApiCall } from "./apiCalls";
+
+export type HistoryActionType =
+  | "DELETE"
+  | "INSERT"
+  | "MERGE"
+  | "REPLACE"
+  | "RESIZE"
+  | "RESTRUCTURE"
+  | "ROTATE"
+  | "SPLIT"
+  | "SWAP";
+
+interface HistoryDelta {
+  type: HistoryActionType;
+  call: ApiCall<FullResponse | null>;
+}
 
 interface HistoryState {
-  past: Array<{ layout: Layout; figsize: FigSize }>;
+  past: HistoryDelta[];
   present: { layout: Layout; figsize: FigSize };
-  future: Array<{ layout: Layout; figsize: FigSize }>;
+  future: HistoryDelta[];
 }
 
 type HistoryAction =
-  | { type: "UNDO" }
-  | { type: "REDO" }
+  | {
+      type: "PUSH";
+      actionType: HistoryActionType;
+      call: ApiCall<FullResponse | null>;
+      layout: Layout;
+      figsize: FigSize;
+    }
+  | { type: "UNDO"; layout: Layout; figsize: FigSize }
+  | { type: "REDO"; layout: Layout; figsize: FigSize }
   | { type: "SET"; layout: Layout; figsize: FigSize }
   | { type: "RESET"; layout: Layout; figsize: FigSize };
 
@@ -17,97 +42,132 @@ const historyReducer = (
   state: HistoryState,
   action: HistoryAction
 ): HistoryState => {
-  const { past, present, future } = state;
-
   switch (action.type) {
-    case "UNDO": {
-      if (past.length === 0) return state;
-      const previous = past[past.length - 1];
-      const newPast = past.slice(0, -1);
-      console.log(
-        "undoing to",
-        (previous.layout as LayoutNode).ratios,
-        (present.layout as LayoutNode).ratios
-      );
-
+    case "PUSH":
+      //     if (
+      //   state.past.length > 0 &&
+      //   JSON.stringify(state.past[state.past.length - 1]) ===
+      //     JSON.stringify(action.delta)
+      // )
+      //   return state;
       return {
-        past: newPast,
-        present: previous,
-        future: [present, ...future],
-      };
-    }
-
-    case "REDO": {
-      if (future.length === 0) return state;
-      const next = future[0];
-      const newFuture = future.slice(1);
-
-      return {
-        past: [...past, present],
-        present: next,
-        future: newFuture,
-      };
-    }
-
-    case "SET": {
-      // Don't push to history if nothing changed
-      if (
-        JSON.stringify(present.layout) === JSON.stringify(action.layout) &&
-        present.figsize.w === action.figsize.w &&
-        present.figsize.h === action.figsize.h
-      ) {
-        return state;
-      }
-
-      return {
-        past: [...past, present].slice(-50), // Limit history to 50 steps
-        present: { layout: action.layout, figsize: action.figsize },
-        future: [], // New actions clear the redo stack
-      };
-    }
-
-    case "RESET": {
-      return {
-        past: [],
+        past: [
+          ...state.past,
+          { type: action.actionType, call: action.call },
+        ].slice(-50),
         present: { layout: action.layout, figsize: action.figsize },
         future: [],
       };
-    }
-
+    case "UNDO":
+      const undoDelta = state.past[state.past.length - 1];
+      return {
+        past: state.past.slice(0, -1),
+        present: { layout: action.layout, figsize: action.figsize },
+        future: [undoDelta, ...state.future],
+      };
+    case "REDO":
+      const redoDelta = state.future[0];
+      return {
+        past: [...state.past, redoDelta],
+        present: { layout: action.layout, figsize: action.figsize },
+        future: state.future.slice(1),
+      };
+    case "SET":
+    case "RESET":
+      return {
+        past: action.type === "RESET" ? [] : state.past,
+        present: { layout: action.layout, figsize: action.figsize },
+        future: action.type === "RESET" ? [] : state.future,
+      };
     default:
       return state;
   }
 };
 
-const useHistory = (initialLayout: Layout, initialFigsize: FigSize) => {
+interface UseHistoryProps {
+  initialLayout: Layout;
+  initialFigsize: FigSize;
+}
+
+export type History = {
+  state: { layout: Layout; figsize: FigSize };
+  undo: () => Promise<FullResponse | null>;
+  redo: () => Promise<FullResponse | null>;
+  executeAction: (
+    type: HistoryActionType,
+    apiCallBuilder: (l: Layout, f: FigSize) => ApiCall<FullResponse | null>
+  ) => Promise<FullResponse | null>;
+  setPresent: (layout: Layout, figsize: FigSize) => void;
+  reset: (layout: Layout, figsize: FigSize) => void;
+  canUndo: boolean;
+  canRedo: boolean;
+};
+
+const useHistory = ({
+  initialLayout,
+  initialFigsize,
+}: UseHistoryProps): History => {
   const [state, dispatch] = useReducer(historyReducer, {
     past: [],
     present: { layout: initialLayout, figsize: initialFigsize },
     future: [],
   });
 
-  const canUndo = state.past.length > 0;
-  const canRedo = state.future.length > 0;
-
-  const undo = useCallback(() => dispatch({ type: "UNDO" }), []);
-  const redo = useCallback(() => dispatch({ type: "REDO" }), []);
-
-  const setPresent = useCallback((layout: Layout, figsize: FigSize) => {
+  const setPresent = (layout: Layout, figsize: FigSize) =>
     dispatch({ type: "SET", layout, figsize });
-  }, []);
 
-  const resetHistory = useCallback((layout: Layout, figsize: FigSize) => {
-    dispatch({ type: "RESET", layout, figsize });
-  }, []);
+  const executeAction = async (
+    type: HistoryActionType,
+    apiCallBuilder: (l: Layout, f: FigSize) => ApiCall<FullResponse | null>
+  ) => {
+    const apiCall = apiCallBuilder(state.present.layout, state.present.figsize);
+    const res = await apiCall.do();
+    if (res) {
+      dispatch({
+        type: "PUSH",
+        actionType: type,
+        call: apiCall,
+        layout: res.layout,
+        figsize: res.figsize,
+      });
+      return res;
+    }
+    return null;
+  };
+
+  const undo = async () => {
+    if (state.past.length === 0) return null;
+    const delta = state.past[state.past.length - 1];
+    const res = await delta.call.undo();
+    if (res) {
+      dispatch({ type: "UNDO", layout: res.layout, figsize: res.figsize });
+    }
+    return res;
+  };
+
+  const redo = async () => {
+    if (state.future.length === 0) return null;
+    const delta = state.future[0];
+    const res = await delta.call.do();
+    if (res) {
+      dispatch({ type: "REDO", layout: res.layout, figsize: res.figsize });
+    }
+    return res;
+  };
+
+  const reset = useCallback(() => {
+    dispatch({ type: "RESET", layout: initialLayout, figsize: initialFigsize });
+  }, [initialLayout, initialFigsize]);
 
   return {
     state: state.present,
     undo,
     redo,
+    executeAction,
     setPresent,
-    resetHistory,
-    canUndo,
-    canRedo,
+    reset,
+    canUndo: state.past.length > 0,
+    canRedo: state.future.length > 0,
   };
 };
 

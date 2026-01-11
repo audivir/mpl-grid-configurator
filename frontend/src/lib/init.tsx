@@ -3,17 +3,12 @@ import { api } from "./api";
 import { STORAGE_KEYS } from "./const";
 import { Layout, FigSize } from "./layout";
 
-interface InitProps {
+interface UseInitProps {
   setIsInitializing: (v: SetStateAction<boolean>) => void;
   sessionToken: string | null;
   setSessionToken: (v: SetStateAction<string | null>) => void;
   layout: Layout;
   figsize: FigSize;
-  renderLayout: (
-    l: Layout,
-    fs: FigSize,
-    tok: string | null
-  ) => Promise<void> | undefined;
   setFuncs: (v: SetStateAction<string[]>) => void;
   setSvgContent: (v: SetStateAction<string>) => void;
 }
@@ -25,9 +20,8 @@ const useInit = ({
   setSessionToken,
   layout,
   figsize,
-  renderLayout,
   setSvgContent,
-}: InitProps) => {
+}: UseInitProps) => {
   const hasInitialized = useRef(false);
 
   useEffect(() => {
@@ -37,7 +31,7 @@ const useInit = ({
 
     const performInit = async () => {
       try {
-        const funcsData = await api.getFunctions();
+        const funcsData = await api.functions();
         if (funcsData) setFuncs(funcsData);
 
         let activeToken = sessionToken;
@@ -45,11 +39,15 @@ const useInit = ({
 
         // 1. Health Check existing token
         if (activeToken) {
-          const ok = await api.healthCheck(activeToken);
+          const ok = await api.health(activeToken);
           if (ok) {
             // Token is valid, perform initial render
-            await renderLayout(layout, figsize, activeToken);
+            const data = await api.render(layout, figsize, activeToken);
+            if (data) {
+              setSvgContent(data.svg);
+            }
           } else {
+            console.error("Invalid session token, creating new session");
             createNewSession = true;
             localStorage.removeItem(STORAGE_KEYS.SESSION_TOKEN);
             setSessionToken(null);
@@ -59,7 +57,7 @@ const useInit = ({
 
         // 2. Create session if needed
         if (!activeToken || createNewSession) {
-          const sessionData = await api.createSession(layout, figsize);
+          const sessionData = await api.session(layout, figsize);
           if (sessionData) {
             localStorage.setItem(STORAGE_KEYS.SESSION_TOKEN, sessionData.token);
             setSessionToken(sessionData.token);

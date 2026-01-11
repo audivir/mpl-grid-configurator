@@ -1,5 +1,7 @@
+export type RestructuredLayout = import("react-resizable-panels").Layout;
 export type Orientation = "row" | "column";
 export type Resize = [string, [number, number]] | null;
+export type RestructureInfo = [number[], [number, number]] | null;
 export type LayoutNode = {
   orient: Orientation;
   children: [Layout, Layout];
@@ -7,10 +9,7 @@ export type LayoutNode = {
 };
 export type Layout = string | LayoutNode;
 
-export interface FigSize {
-  w: number;
-  h: number;
-}
+export type FigSize = [number, number];
 
 /**
  * Get the leaf or node at the given path.

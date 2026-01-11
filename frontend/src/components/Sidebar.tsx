@@ -1,5 +1,4 @@
-import { FigSize, Layout } from "../lib/layout";
-import { toast } from "sonner";
+import { SetStateAction, useEffect, useRef, useState } from "react";
 import { cn } from "react-lib-tools";
 import {
   Settings,
@@ -16,27 +15,27 @@ import {
   PinOff,
   Copy,
 } from "lucide-react";
-import { SetStateAction, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import ControlButton from "./ControlButton";
+import { LayoutActions } from "../lib/actions";
+import { DEFAULT_FIGSIZE, DEFAULT_LAYOUT, STORAGE_KEYS } from "../lib/const";
 import { copyContentToClipboard, downloadContent } from "../lib/content";
-import { STORAGE_KEYS } from "../lib/const";
+import { History } from "../lib/history";
+import { FigSize, Layout } from "../lib/layout";
 
 interface SidebarProps {
   layout: Layout;
   figsize: FigSize;
   figsizePreview: FigSize;
   setFigsizePreview: (v: SetStateAction<FigSize>) => void;
-  commitFigsize: () => void;
   zoom: number;
   setZoom: (v: SetStateAction<number>) => void;
   showOverlay: boolean;
   setShowOverlay: (v: SetStateAction<boolean>) => void;
-  handleReset: (l: Layout, fs: FigSize) => void;
   svgContent: string;
-  canUndo: boolean;
-  canRedo: boolean;
-  onUndo: () => void;
-  onRedo: () => void;
+  setSvgContent: (v: SetStateAction<string>) => void;
+  history: History;
+  actions: LayoutActions;
 }
 
 const handleImport = (handleReset: (l: Layout, fs: FigSize) => void) => {
@@ -61,17 +60,14 @@ const Sidebar: React.FC<SidebarProps> = ({
   figsize,
   figsizePreview,
   setFigsizePreview,
-  commitFigsize,
   zoom,
   setZoom,
   showOverlay,
   setShowOverlay,
-  handleReset,
   svgContent,
-  canUndo,
-  canRedo,
-  onUndo,
-  onRedo,
+  setSvgContent,
+  history,
+  actions,
 }) => {
   const [isPinned, setIsPinned] = useState(
     localStorage.getItem(STORAGE_KEYS.SIDEBAR_PINNED) === "true"
@@ -180,11 +176,17 @@ const Sidebar: React.FC<SidebarProps> = ({
           <section className="space-y-6">
             <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={onUndo}
-                disabled={!canUndo}
+                onClick={async () => {
+                  const res = await history.undo();
+                  if (res) {
+                    setSvgContent(res.svg);
+                    toast.success("Undo successful");
+                  }
+                }}
+                disabled={!history.canUndo}
                 className={cn(
                   "flex items-center justify-center gap-2 py-2 rounded border transition-all text-xs font-bold",
-                  canUndo
+                  history.canUndo
                     ? "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
                     : "bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed opacity-50"
                 )}
@@ -192,11 +194,17 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <Undo2 size={14} /> UNDO
               </button>
               <button
-                onClick={onRedo}
-                disabled={!canRedo}
+                onClick={async () => {
+                  const res = await history.redo();
+                  if (res) {
+                    setSvgContent(res.svg);
+                    toast.success("Redo successful");
+                  }
+                }}
+                disabled={!history.canRedo}
                 className={cn(
                   "flex items-center justify-center gap-2 py-2 rounded border transition-all text-xs font-bold",
-                  canRedo
+                  history.canRedo
                     ? "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
                     : "bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed opacity-50"
                 )}
@@ -233,43 +241,37 @@ const Sidebar: React.FC<SidebarProps> = ({
             <div className="pt-4 border-t border-slate-700/50 space-y-4">
               <div className="flex justify-between text-xs text-slate-500 font-bold uppercase tracking-wider">
                 <span>Width</span>
-                <span className="text-blue-400">{figsizePreview.w}</span>
+                <span className="text-blue-400">{figsizePreview[0]}</span>
               </div>
               <input
                 type="range"
                 min="4"
                 max="24"
                 step="0.5"
-                value={figsizePreview.w}
+                value={figsizePreview[0]}
                 onChange={(e) => {
-                  setFigsizePreview((prev) => ({
-                    ...prev,
-                    w: +e.target.value,
-                  }));
+                  setFigsizePreview((prev) => [+e.target.value, prev[1]]);
                 }}
-                onMouseUp={commitFigsize}
-                onKeyUp={commitFigsize}
+                onMouseUp={() => actions.resize(figsizePreview)}
+                onKeyUp={() => actions.resize(figsizePreview)}
                 className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
               />
 
               <div className="flex justify-between text-xs text-slate-500 font-bold uppercase tracking-wider">
                 <span>Height</span>
-                <span className="text-blue-400">{figsizePreview.h}</span>
+                <span className="text-blue-400">{figsizePreview[1]}</span>
               </div>
               <input
                 type="range"
                 min="2"
                 max="18"
                 step="0.5"
-                value={figsizePreview.h}
+                value={figsizePreview[1]}
                 onChange={(e) =>
-                  setFigsizePreview((prev) => ({
-                    ...prev,
-                    h: +e.target.value,
-                  }))
+                  setFigsizePreview((prev) => [prev[0], +e.target.value])
                 }
-                onMouseUp={commitFigsize}
-                onKeyUp={commitFigsize}
+                onMouseUp={() => actions.resize(figsizePreview)}
+                onKeyUp={() => actions.resize(figsizePreview)}
                 className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
               />
             </div>
@@ -300,7 +302,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               <ControlButton
                 icon={Import}
                 label="Import Config"
-                onClick={() => handleImport(handleReset)}
+                onClick={() => handleImport(history.reset)}
               />
 
               <ControlButton
@@ -330,7 +332,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 variant="danger"
                 onClick={() =>
                   window.confirm("Reset all progress?") &&
-                  handleReset("draw_empty", { w: 8, h: 4 })
+                  history.reset(DEFAULT_LAYOUT, DEFAULT_FIGSIZE)
                 }
               />
             </div>
