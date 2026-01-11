@@ -2,16 +2,19 @@
 
 # Prerequisites
 
-* Python 3.9 or higher
-* Node.js and npm
+- Python 3.9 or higher
+- Node.js and npm
 
 # Installation
 
-* From PyPI
+- From PyPI
+
 ```bash
 python -m pip install mpl-grid-configurator # or uv pip install mpl-grid-configurator
 ```
-* From source
+
+- From source
+
 ```bash
 git clone https://github.com/timvdm/mpl-grid-configurator.git
 cd mpl-grid-configurator
@@ -19,6 +22,7 @@ python -m pip install . # or uv pip install .
 ```
 
 # Example Usage
+
 ```bash
 python example.py
 ```
@@ -71,15 +75,24 @@ register(draw_plot)
 # Start backend and frontend
 start_app()
 ```
+
 Adjust the imports and register your drawing functions, then call `start_app()`.
-* Add required imports: `from mpl_grid_configurator import register, start_app`
-* Register your drawing functions: `register(draw_scatter)` and `register(draw_plot)`
-* Start the backend and frontend: `start_app()`
+
+- Add required imports: `from mpl_grid_configurator import register, start_app`
+- Register your drawing functions: `register(draw_scatter)` and `register(draw_plot)`
+- Start the backend and frontend: `start_app()`
 
 A webbrowser opens, adjust the grid, add panels, choose the drawing function,
 to store the configuration for finalizing the layout or to continue the edit later, use `Copy Configuration` and import it later with `Import Configuration`.
 
 To finalize the layout, adjust the code:
-* Change import to `from mpl_grid_configurator import register, render_layout`
-* Add configuration: `layout_data = ...`
-* Replace `start_app()` with `fig = render_layout(layout_data)`
+
+- Change import to `from mpl_grid_configurator import register, render_layout`
+- Add configuration: `layout_data = ...`
+- Replace `start_app()` with `fig = render_layout(layout_data)`
+
+# TODO
+
+- Place the icons for rotate in the center of the separator
+- Put the other icons in a new line below the drop down menu if the size of the panel is too small
+- Show a preview which panel gets expanded in case of a delete while hovering over the delete icon
