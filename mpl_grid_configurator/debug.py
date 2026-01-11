@@ -34,20 +34,6 @@ def are_siblings(root: LayoutNode, id_a: str, id_b: str, *, use_full_id: bool = 
     return path_a[:-1] == path_b[:-1]
 
 
-def are_nodes_equal(node_a: LayoutNode | str, node_b: LayoutNode | str) -> bool:
-    """Check if two nodes are equal."""
-    if isinstance(node_a, str) or isinstance(node_b, str):
-        return node_a == node_b
-
-    return (
-        node_a["orient"] == node_b["orient"]
-        and almost_equal(node_a["ratios"][0], node_b["ratios"][0])
-        and almost_equal(node_a["ratios"][1], node_b["ratios"][1])
-        and are_nodes_equal(node_a["children"][0], node_b["children"][0])
-        and are_nodes_equal(node_a["children"][1], node_b["children"][1])
-    )
-
-
 def are_bbox_mappings_equal(a: Mapping[str, BoundingBox], b: Mapping[str, BoundingBox]) -> bool:
     """Check if two bounding box mappings are equal."""
     return set(a) == set(b) and all(

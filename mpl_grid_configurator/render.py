@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import logging
 from typing import TYPE_CHECKING, TypeVar
 
@@ -88,8 +89,9 @@ def render_layout(
 
     width, height = figsize
 
-    # Use layout="constrained" to ensure subplots respect the ratio boundaries
-    fig = Figure(figsize=(width, height), layout="constrained")
+    # Use constrained_layout=True to ensure subplots respect the ratio boundaries
+    # and redraws the figure when the layout changes
+    fig = Figure(figsize=(width, height), constrained_layout=True)
 
     svg_mapping: dict[str, str] = {}
     render_recursive(fig, layout, svg_mapping, draw_funcs)
@@ -101,6 +103,14 @@ def render_layout(
         return insert(svg_mapping, final_svg)
 
     return fig, svg_callback
+
+
+def render_svg(fig: Figure, svg_callback: Callable[[str], str]) -> str:
+    """Save a figure to svg, apply a callback and return the svg."""
+    buf = io.BytesIO()
+    fig.savefig(buf, format="svg")
+    final_svg = buf.getvalue().decode("utf-8")
+    return svg_callback(final_svg)
 
 
 def draw_empty(container: Figure | SubFigure) -> Axes:

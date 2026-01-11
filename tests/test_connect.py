@@ -3,9 +3,9 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import TYPE_CHECKING
 
+from mpl_grid_configurator.changes import are_nodes_equal
 from mpl_grid_configurator.debug import (
     are_bbox_mappings_equal,
-    are_nodes_equal,
     are_siblings,
 )
 from mpl_grid_configurator.merge import find_path_by_id, get_bbox_mapping, merge_paths

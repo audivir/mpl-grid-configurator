@@ -1,5 +1,5 @@
 {
-  "name": "matplotlib-grid-editor",
+  "name": "mpl-grid-configurator",
   "version": "0.1.0",
   "license": "MIT",
   "dependencies": {

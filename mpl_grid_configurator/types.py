@@ -17,13 +17,35 @@ from typing import (
 )
 
 from doctyper._typing import eval_type
+from matplotlib.figure import Figure, SubFigure  # noqa: TC002
 from typing_extensions import TypedDict, TypeIs
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from matplotlib.axes import Axes
-    from matplotlib.figure import Figure, SubFigure
+    from matplotlib.gridspec import SubplotSpec
+
+    class SubplotSpec_(SubplotSpec):  # noqa: N801
+        """Custom SubplotSpec."""
+
+        _num2: int
+
+    class Figure_(Figure):  # noqa: N801
+        """Custom Figure."""
+
+        subfigs: list[SubFigure_]  # type: ignore[assignment]
+
+    class SubFigure_(SubFigure):  # noqa: N801
+        """Custom SubFigure."""
+
+        _parent: Figure_ | SubFigure_
+        _subplotspec: SubplotSpec_
+        subfigs: list[SubFigure_]  # type: ignore[assignment]
+
 
 T = TypeVar("T")
+
 
 AxesDrawFunc: TypeAlias = "Callable[[Figure | SubFigure], Axes]"
 TupleDrawFunc: TypeAlias = "Callable[[Figure | SubFigure], tuple[str, Axes]]"
@@ -35,7 +57,7 @@ Orientation: TypeAlias = Literal["row", "column"]
 
 
 class LayoutNode(TypedDict):
-    """Node for the layout."""
+    """Node for the JSON layout."""
 
     orient: Orientation
     children: tuple[LayoutNode | str, LayoutNode | str]
@@ -45,24 +67,62 @@ class LayoutNode(TypedDict):
 LayoutT = TypeVar("LayoutT", LayoutNode, str)
 Layout: TypeAlias = LayoutNode | str
 
+LayoutNode({"orient": "row", "children": ("a", "b"), "ratios": (1, 1)})
 
-class LayoutData(TypedDict):
+
+class LayoutRequest(TypedDict):
     """Layout and figure size."""
 
     layout: Layout
     figsize: tuple[float, float]
 
 
-class SVGResponse(TypedDict):
+class TokenResponse(TypedDict):
+    """Token response."""
+
+    token: str
+
+
+class SVGResponse(TokenResponse):
     """SVG response."""
 
     svg: str
 
 
-class LayoutResponse(TypedDict):
+class LayoutResponse(TokenResponse):
     """Layout response."""
 
     layout: Layout
+
+
+class FullResponse(TokenResponse):
+    """Response containing both layout and svg."""
+
+    svg: str
+    layout: Layout
+
+
+class SessionData(TypedDict):
+    """Session figure."""
+
+    figsize: tuple[float, float]
+    layout: Layout
+    fig: Figure
+    svg_callback: Callable[[str], str]
+
+
+class Session(TypedDict):
+    """Session."""
+
+    token: str
+    data: SessionData | None
+
+
+class Payload(TypedDict):
+    """JWT payload."""
+
+    sub: str
+    exp: datetime
 
 
 @dataclass

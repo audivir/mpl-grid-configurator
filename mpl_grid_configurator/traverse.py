@@ -2,14 +2,27 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
-    from mpl_grid_configurator.types import LayoutNode
+    from mpl_grid_configurator.types import Figure_, LayoutNode, SubFigure_
+
+
+T = TypeVar("T")
 
 
 class TraversalError(ValueError):
     """Provided path is invalid for the given operation."""
+
+
+def get_subfig(fig: Figure_ | SubFigure_, path: tuple[int, ...]) -> Figure_ | SubFigure_:
+    """Get the subfigure at the given path."""
+    if not path:
+        return fig
+    curr = fig.subfigs[path[0]]
+    for ix in path[1:]:
+        curr = curr.subfigs[ix]
+    return curr
 
 
 def get_at(node: LayoutNode, path: tuple[int, ...]) -> LayoutNode | str:
