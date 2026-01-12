@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from mpl_grid_configurator.figure_editor import FigureEditor
 from mpl_grid_configurator.layout_editor import LayoutEditor
 from mpl_grid_configurator.register import DRAW_FUNCS
-from mpl_grid_configurator.traverse import assert_node, get_at, get_node
+from mpl_grid_configurator.traverse import almost_equal, assert_node, get_at, get_node
 
 if TYPE_CHECKING:
     from collections.abc import Callable, MutableMapping, Sequence
@@ -193,7 +193,9 @@ def rebuild(
             layout = add_step(layout, ("rotate", curr_path, {}))
 
         # adjust the split ratio if necessary
-        if target_elem["ratios"] != elem["ratios"]:
+        if not almost_equal(elem["ratios"][0], target_elem["ratios"][0]) or not almost_equal(
+            elem["ratios"][1], target_elem["ratios"][1]
+        ):
             layout = add_step(layout, ("restructure", curr_path, {"ratios": target_elem["ratios"]}))
 
         child1, child2 = elem["children"]

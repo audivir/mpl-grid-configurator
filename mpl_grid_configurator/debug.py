@@ -99,7 +99,8 @@ def are_bbox_mappings_equal(a: Mapping[str, BoundingBox], b: Mapping[str, Boundi
 def draw_text(fig: Figure | SubFigure, text: str) -> None:
     """Draw `text` in the center of the figure."""
     ax = fig.add_subplot()
-    ax.axis("off")
+    ax.set_xticks([])
+    ax.set_yticks([])
     ax.text(0.5, 0.3, text, ha="center", va="center")
 
 
