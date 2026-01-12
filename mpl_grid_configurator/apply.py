@@ -4,17 +4,18 @@ from __future__ import annotations
 
 import logging
 from copy import deepcopy
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal
 
 from mpl_grid_configurator.figure_editor import FigureEditor
 from mpl_grid_configurator.layout_editor import LayoutEditor
 from mpl_grid_configurator.register import DRAW_FUNCS
+from mpl_grid_configurator.render import DEFAULT_LEAF
 from mpl_grid_configurator.traverse import almost_equal, assert_node, get_at, get_node
 
 if TYPE_CHECKING:
     from collections.abc import Callable, MutableMapping, Sequence
 
-    from mpl_grid_configurator.types import Change, DrawFunc, Layout, LPath, SubFigure_
+    from mpl_grid_configurator.types import Change, DrawFunc, Layout, LayoutNode, LPath, SubFigure_
 
 logger = logging.getLogger(__name__)
 
@@ -30,22 +31,12 @@ def wrap_svg_callback(
     return wrapped_svg_callback
 
 
-def is_compatible(
-    changes: Sequence[Change], layout_removed: Sequence[Layout | None]
-) -> tuple[bool, list[str | None] | None]:
-    """Check if the removed elements are compatible for applying to the figure."""
-    changes_compatible = True
+def are_only_leafs_added(changes: Sequence[Change]) -> bool:
+    """Check if no nodes will be added during insert or replace."""
     for _, _, kwargs in changes:
         if "value" in kwargs and not isinstance(kwargs["value"], str):
-            changes_compatible = False
-
-    compatible_removed: list[str | None] = []
-
-    for elem in layout_removed:
-        if elem and not isinstance(elem, str):
-            return changes_compatible, None
-        compatible_removed.append(elem)
-    return changes_compatible, compatible_removed
+            return False
+    return True
 
 
 def get_drawer(subfigs: MutableMapping[str, list[SubFigure_]], value: str) -> DrawFunc | SubFigure_:
@@ -55,6 +46,75 @@ def get_drawer(subfigs: MutableMapping[str, list[SubFigure_]], value: str) -> Dr
     if not cache:
         return DRAW_FUNCS[value]
     return cache.pop()
+
+
+def add_to_cache(
+    removed: Layout, sf: SubFigure_, subfigs: MutableMapping[str, list[SubFigure_]]
+) -> None:
+    """Add a removed element recursively to the cache."""
+    if isinstance(removed, str):
+        subfigs.setdefault(removed, []).append(sf)
+        return
+    child1, child2 = removed["children"]
+    sf1, sf2 = sf.subfigs
+    add_to_cache(child1, sf1, subfigs)
+    add_to_cache(child2, sf2, subfigs)
+
+
+def insert_or_replace_leaf(  # noqa: PLR0913
+    mode: Literal["insert", "replace"],
+    root: SubFigure_,
+    path: LPath,
+    value: str,
+    kwargs: dict[str, Any],
+    removed: Layout,
+    subfigs: MutableMapping[str, list[SubFigure_]],
+    svg_callback: Callable[[str], str],
+) -> tuple[SubFigure_, Callable[[str], str]]:
+    """Insert a leaf into a figure."""
+    drawer = get_drawer(subfigs, value)
+    if mode == "insert":
+        if set(kwargs) != {"orient", "ratios"}:
+            raise ValueError("Unexpected kwargs for insert")
+        root, removed_sf, curr_svg_callback = FigureEditor.insert(
+            root, path, kwargs["orient"], kwargs["ratios"], value, drawer
+        )
+    elif mode == "replace":
+        if kwargs:
+            raise ValueError("Unexpected kwargs for replace")
+        root, removed_sf, curr_svg_callback = FigureEditor.replace(root, path, value, drawer)
+    else:
+        raise ValueError(f"Unknown mode: {mode}")
+    add_to_cache(removed, removed_sf, subfigs)
+    svg_callback = wrap_svg_callback(svg_callback, curr_svg_callback)
+    return root, svg_callback
+
+
+def insert_node(
+    root: SubFigure_,
+    value: LayoutNode,
+    curr_path: LPath,
+    subfigs: MutableMapping[str, list[SubFigure_]],
+    svg_callback: Callable[[str], str],
+) -> tuple[SubFigure_, Callable[[str], str]]:
+    """Insert a node into a figure."""
+    root = FigureEditor.split(root, curr_path, value["orient"])
+    if not almost_equal(value["ratios"][0], 50) or not almost_equal(value["ratios"][1], 50):
+        FigureEditor.restructure(root, curr_path, value["ratios"])
+    child1, child2 = value["children"]
+    for ix, child in enumerate((child1, child2)):
+        child_path = (*curr_path, ix)
+        if isinstance(child, str):
+            drawer = get_drawer(subfigs, child)
+            root, removed_sf, curr_svg_callback = FigureEditor.replace(
+                root, child_path, child, drawer
+            )
+            add_to_cache(DEFAULT_LEAF, removed_sf, subfigs)
+            svg_callback = wrap_svg_callback(svg_callback, curr_svg_callback)
+        else:
+            root, svg_callback = insert_node(root, child, child_path, subfigs, svg_callback)
+
+    return root, svg_callback
 
 
 def apply_to_layout(
@@ -95,41 +155,48 @@ def apply_to_layout(
 def apply_to_figure(  # noqa: C901,PLR0912
     root: SubFigure_,
     changes: Sequence[Change],
-    layout_removed: Sequence[str | None],
+    layout_removed: Sequence[Layout | None],
     subfigs: MutableMapping[str, list[SubFigure_]],
     svg_callback: Callable[[str], str],
 ) -> tuple[SubFigure_, Callable[[str], str]]:
     """Apply a list of changes to a figure."""
     for (key, path, kwargs), removed in zip(changes, layout_removed, strict=True):
-        if removed and not isinstance(removed, str):
-            raise ValueError("Cannot remove nodes in figures")
         match key:
             case "delete":
+                if not removed:
+                    raise ValueError("Got no corresponding removed element")
                 root, removed_sf = FigureEditor.delete(root, path)
-                if removed:
-                    subfigs.setdefault(removed, []).append(removed_sf)
+                add_to_cache(removed, removed_sf, subfigs)
             case "insert":
-                value = kwargs["value"]
-                if not isinstance(value, str):
-                    raise ValueError("Cannot insert nodes in figures")  # noqa: TRY004
-                drawer = get_drawer(subfigs, value)
-                root, removed_sf, curr_svg_callback = FigureEditor.insert(
-                    root, path, drawer=drawer, **kwargs
+                if not removed:
+                    raise ValueError("Got no corresponding removed element")
+                value = kwargs.pop("value")
+                if isinstance(value, str):  # simple
+                    root, svg_callback = insert_or_replace_leaf(
+                        "insert", root, path, value, kwargs, removed, subfigs, svg_callback
+                    )
+                    continue
+                # insert dummy leaf first
+                root, svg_callback = insert_or_replace_leaf(
+                    "insert", root, path, DEFAULT_LEAF, kwargs, removed, subfigs, svg_callback
                 )
-                if removed:
-                    subfigs.setdefault(removed, []).append(removed_sf)
-                svg_callback = wrap_svg_callback(svg_callback, curr_svg_callback)
+                # and then recursively add subfigures to replace the dummy leaf
+                root, svg_callback = insert_node(root, value, path, subfigs, svg_callback)
             case "replace":
-                value = kwargs["value"]
-                if not isinstance(value, str):
-                    raise ValueError("Cannot replace elements with nodes in figures")  # noqa: TRY004
-                drawer = get_drawer(subfigs, value)
-                root, removed_sf, curr_svg_callback = FigureEditor.replace(
-                    root, path, drawer=drawer, **kwargs
+                if not removed:
+                    raise ValueError("Got no corresponding removed element")
+                value = kwargs.pop("value")
+                if isinstance(value, str):
+                    root, svg_callback = insert_or_replace_leaf(
+                        "replace", root, path, value, kwargs, removed, subfigs, svg_callback
+                    )
+                    continue
+                # replace with dummy leaf first
+                root, svg_callback = insert_or_replace_leaf(
+                    "replace", root, path, DEFAULT_LEAF, kwargs, removed, subfigs, svg_callback
                 )
-                if removed:
-                    subfigs.setdefault(removed, []).append(removed_sf)
-                svg_callback = wrap_svg_callback(svg_callback, curr_svg_callback)
+                # and then recursively add subfigures to replace the dummy leaf
+                root, svg_callback = insert_node(root, value, path, subfigs, svg_callback)
             case "restructure":
                 FigureEditor.restructure(root, path, **kwargs)
             case "rotate":

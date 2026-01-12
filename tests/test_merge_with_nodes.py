@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-import msgspec
-from typing_extensions import TypedDict
+from utils import render_fig
 
-from mpl_grid_configurator.types import Ratios
+from mpl_grid_configurator.merge_editor import merge
+from mpl_grid_configurator.traverse import find_path_by_id
 
 
-def test_difficult_merge() -> None:
+def test_merge_with_nodes(define_draw_funcs: None) -> None:
+    del define_draw_funcs  # just for the side effect
+
     json = {
         "layout": {
             "orient": "column",
@@ -23,26 +25,26 @@ def test_difficult_merge() -> None:
                                         {
                                             "orient": "column",
                                             "children": [
-                                                "plot_a",
+                                                "f1l",
                                                 {
                                                     "orient": "column",
                                                     "children": [
-                                                        "plot_c",
+                                                        "f2l",
                                                         {
                                                             "orient": "column",
-                                                            "children": ["plot_d", "plot_f"],
+                                                            "children": ["f3l", "f4l"],
                                                             "ratios": [51.356, 48.644],
                                                         },
                                                     ],
-                                                    "ratios": [29.813, 70.187],
+                                                    "ratios": [29.701, 70.299],
                                                 },
                                             ],
                                             "ratios": [30.625932744775206, 69.37406725522479],
                                         },
                                         {
                                             "orient": "column",
-                                            "children": ["plot_b", "plot_g"],
-                                            "ratios": [41.634, 58.366],
+                                            "children": ["f5l", "f6l"],
+                                            "ratios": [44.834, 55.166],
                                         },
                                     ],
                                     "ratios": [38.69662802053879, 61.30337197946121],
@@ -50,38 +52,45 @@ def test_difficult_merge() -> None:
                                 {
                                     "orient": "row",
                                     "children": [
-                                        "plot_h",
+                                        "f7l",
                                         {
                                             "orient": "row",
                                             "children": [
-                                                "plot_i",
+                                                "f8l",
                                                 {
                                                     "orient": "row",
-                                                    "children": ["plot_j", "plot_j"],
+                                                    "children": ["f9l", "f1r"],
                                                     "ratios": [50, 50],
                                                 },
                                             ],
-                                            "ratios": [43.172, 56.828],
+                                            "ratios": [28.371, 71.629],
                                         },
                                     ],
-                                    "ratios": [34.16, 65.84],
+                                    "ratios": [36.95, 63.05],
                                 },
                             ],
                             "ratios": [79.73425244848725, 20.265747551512746],
                         },
-                        "plot_e",
+                        "f2r",
                     ],
-                    "ratios": [79.723, 20.277],
+                    "ratios": [77.626, 22.374],
                 },
-                {"orient": "row", "children": ["plot_k", "plot_m"], "ratios": [49.429, 50.571]},
+                {"orient": "row", "children": ["f3r", "f4r"], "ratios": [49.429, 50.571]},
             ],
             "ratios": [82.936, 17.064],
         },
         "figsize": [14, 14],
     }
 
-    from mpl_grid_configurator.types import Layout
+    layout, figsize = json["layout"], json["figsize"]
 
-    value = msgspec.convert(json, TypedDict[{"layout": Layout, "figsize": Ratios}])
+    path1 = find_path_by_id(layout, "f4l", use_full_id=True)
+    path2 = find_path_by_id(layout, "f7l", use_full_id=True)
+    if not path1 or not path2:
+        raise ValueError("Could not find paths")
 
-    raise ValueError(value)
+    root = render_fig(layout, figsize)
+
+    layout, root, _, _ = merge(layout, root, path1, path2, {}, lambda svg: svg)
+
+    root = render_fig(layout, figsize)

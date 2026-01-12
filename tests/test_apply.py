@@ -7,7 +7,11 @@ import pytest
 from test_merge import merge_paths_by_id
 from utils import ChangeFixture, assert_figure_equals_layout, render_fig
 
-from mpl_grid_configurator.apply import apply_to_figure, apply_to_layout, is_compatible, rebuild
+from mpl_grid_configurator.apply import (
+    apply_to_figure,
+    apply_to_layout,
+    rebuild,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -34,7 +38,7 @@ FIXTURES = [
     "swap_same",
     "insert",
     "insert_next_to_node",
-    # "insert_node",
+    "insert_node",
 ]
 
 
@@ -69,19 +73,11 @@ def test_apply_to_figure(
     change_fixture: ChangeFixture = request.getfixturevalue(fixture)
 
     pre, post, change, _ = change_fixture
-    pre_copy = deepcopy(pre)
     root = render_fig(pre)
 
-    _, backward, layout_removed = apply_to_layout(pre, [change])
+    _, backward, forward_removed = apply_to_layout(pre, [change])
 
-    changes_compatible, compatible_removed = is_compatible([change], layout_removed)
-
-    if not changes_compatible or compatible_removed is None:
-        with pytest.raises(ValueError, match=r"Cannot .* in figures"):
-            apply_to_figure(root, [change], layout_removed, {}, lambda svg: svg)  # type: ignore[arg-type]
-        return
-
-    root, _ = apply_to_figure(root, [change], compatible_removed, {}, lambda svg: svg)
+    root, _ = apply_to_figure(root, [change], forward_removed, {}, lambda svg: svg)  # type: ignore[arg-type]
 
     assert_figure_equals_layout(root, post, tmp_path)
 
@@ -92,13 +88,9 @@ def test_apply_to_figure(
 
     _, _, backward_removed = apply_to_layout(post, backward)
 
-    changes_compatible, compatible_removed = is_compatible(backward, backward_removed)
-    assert changes_compatible
-    assert compatible_removed is not None
+    root, _ = apply_to_figure(root, backward, backward_removed, {}, lambda svg: svg)
 
-    root, _ = apply_to_figure(root, backward, compatible_removed, {}, lambda svg: svg)
-
-    assert_figure_equals_layout(root, pre_copy, tmp_path)
+    assert_figure_equals_layout(root, pre, tmp_path)
 
 
 def assert_rebuild(layout: Layout, lca_path: LPath, target_layout: Layout, tmp_path: Path) -> None:
@@ -138,9 +130,9 @@ def test_rebuild_single_step(
         assert_rebuild(pre, (), post, tmp_path)
     except ValueError as e:
         if fixture == "delete_node_to_splitted_root" and e.args == (
-            "Cannot remove nodes in figures",
+            "Cannot insert nodes in figures",
         ):
-            pytest.xfail("delete nodes in figure currently not supported")
+            pytest.xfail("insert nodes in figure currently not supported")
         raise
 
 
