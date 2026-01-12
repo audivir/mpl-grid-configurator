@@ -110,13 +110,13 @@ export const apiCalls = {
     let prevRowRestructureInfo: RestructureInfo | null = null;
     let prevColumnRestructureInfo: RestructureInfo | null = null;
     if (rowRestructureInfo) {
-      const rowParentPath = rowRestructureInfo[0];
+      const [rowParentPath, _currRatios] = rowRestructureInfo;
       const prevRowNode = getNode(layout, rowParentPath);
       const prevRatios = prevRowNode.ratios;
       prevRowRestructureInfo = [rowParentPath, prevRatios];
     }
     if (columnRestructureInfo) {
-      const columnParentPath = columnRestructureInfo[0];
+      const [columnParentPath, _currRatios] = columnRestructureInfo;
       const prevColumnNode = getNode(layout, columnParentPath);
       const prevRatios = prevColumnNode.ratios;
       prevColumnRestructureInfo = [columnParentPath, prevRatios];

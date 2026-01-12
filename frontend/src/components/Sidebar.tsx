@@ -104,6 +104,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [svgCopied, setSvgCopied] = useState(false);
   const [svgDownloaded, setSvgDownloaded] = useState(false);
 
+  const [previewWidth, previewHeight] = figsizePreview;
   return (
     <>
       {!sidebarOpen && (
@@ -262,14 +263,14 @@ const Sidebar: React.FC<SidebarProps> = ({
             <div className="pt-4 border-t border-slate-700/50 space-y-4">
               <div className="flex justify-between text-xs text-slate-500 font-bold uppercase tracking-wider">
                 <span>Width</span>
-                <span className="text-blue-400">{figsizePreview[0]}</span>
+                <span className="text-blue-400">{previewWidth}</span>
               </div>
               <input
                 type="range"
                 min="4"
                 max="24"
                 step="0.5"
-                value={figsizePreview[0]}
+                value={previewWidth}
                 onChange={(e) => {
                   setFigsizePreview((prev) => [+e.target.value, prev[1]]);
                 }}
@@ -280,14 +281,14 @@ const Sidebar: React.FC<SidebarProps> = ({
 
               <div className="flex justify-between text-xs text-slate-500 font-bold uppercase tracking-wider">
                 <span>Height</span>
-                <span className="text-blue-400">{figsizePreview[1]}</span>
+                <span className="text-blue-400">{previewHeight}</span>
               </div>
               <input
                 type="range"
                 min="2"
                 max="18"
                 step="0.5"
-                value={figsizePreview[1]}
+                value={previewHeight}
                 onChange={(e) =>
                   setFigsizePreview((prev) => [prev[0], +e.target.value])
                 }

@@ -106,7 +106,6 @@ const App: React.FC = () => {
               figsizePreview={figsizePreview}
               showOverlay={showOverlay}
               svgContent={svgContent}
-              setSvgContent={setSvgContent}
               zoom={zoom}
               funcs={funcs}
               actions={actions}

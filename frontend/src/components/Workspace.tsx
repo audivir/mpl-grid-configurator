@@ -11,7 +11,6 @@ interface WorkspaceProps {
   figsizePreview: FigureSize;
   showOverlay: boolean;
   svgContent: string;
-  setSvgContent: (v: SetStateAction<string>) => void;
   zoom: number;
   funcs: string[];
   actions: LayoutActions;
@@ -22,18 +21,20 @@ const Workspace: React.FC<WorkspaceProps> = ({
   figsizePreview,
   showOverlay,
   svgContent,
-  setSvgContent,
   zoom,
   funcs,
   actions,
 }) => {
+  const [previewWidth, previewHeight] = figsizePreview;
+  const pxPreviewWidth = previewWidth * DEFAULT_DPI;
+  const pxPreviewHeight = previewHeight * DEFAULT_DPI;
   return (
     <div className="w-full h-full overflow-auto scrollbar-hide">
       <div
         className="relative bg-white shadow-xl origin-top-left transition-transform duration-75 ease-out"
         style={{
-          width: `${figsize[0] * DEFAULT_DPI}px`,
-          height: `${figsize[1] * DEFAULT_DPI}px`,
+          width: `${pxPreviewWidth}px`,
+          height: `${pxPreviewHeight}px`,
           transform: `scale(${zoom})`,
         }}
       >
