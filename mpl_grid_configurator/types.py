@@ -43,7 +43,6 @@ if TYPE_CHECKING:
         _subplotspec: SubplotSpec_
         subfigs: list[SubFigure_]  # type: ignore[assignment]
 
-    OptFigureT = TypeVar("OptFigureT", Figure_, None)
 
 T = TypeVar("T")
 

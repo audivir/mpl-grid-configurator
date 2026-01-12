@@ -31,14 +31,6 @@ def wrap_svg_callback(
     return wrapped_svg_callback
 
 
-def are_only_leafs_added(changes: Sequence[Change]) -> bool:
-    """Check if no nodes will be added during insert or replace."""
-    for _, _, kwargs in changes:
-        if "value" in kwargs and not isinstance(kwargs["value"], str):
-            return False
-    return True
-
-
 def get_drawer(subfigs: MutableMapping[str, list[SubFigure_]], value: str) -> DrawFunc | SubFigure_:
     """Get a cached drawer or create a new one from the registry."""
     cache = subfigs.get(value, [])
