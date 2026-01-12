@@ -1,5 +1,6 @@
 import { SetStateAction, useEffect, useRef, useState } from "react";
 import { cn } from "react-lib-tools";
+import json5 from "json5";
 import {
   Settings,
   RotateCcw,
@@ -21,7 +22,7 @@ import { LayoutActions } from "../lib/actions";
 import { DEFAULT_FIGSIZE, DEFAULT_LAYOUT, STORAGE_KEYS } from "../lib/const";
 import { copyContentToClipboard, downloadContent } from "../lib/content";
 import { History } from "../lib/history";
-import { FigSize, Layout } from "../lib/layout";
+import { ConfigSchema, FigSize, Layout } from "../lib/layout";
 
 interface SidebarProps {
   layout: Layout;
@@ -38,22 +39,41 @@ interface SidebarProps {
   actions: LayoutActions;
 }
 
+const parseConfig = (raw: string) => {
+  let json: any;
+  try {
+    json = JSON.parse(raw);
+  } catch (err) {
+    try {
+      json = json5.parse(raw);
+    } catch (err) {
+      toast.error("Invalid JSON");
+      return;
+    }
+    toast.warning("Input only parseable as JSON5, not JSON");
+  }
+  const config = ConfigSchema.safeParse(json);
+  if (!config.success) {
+    toast.error("JSON does not match expected schema");
+    return;
+  }
+  return config.data;
+};
+
 const handleImport = (
   handleReset: (l: Layout, fs: FigSize, msg?: string) => Promise<void>
 ) => {
   const raw = window.prompt("Paste Config JSON:");
   if (!raw) return;
 
-  try {
-    const p = JSON.parse(raw);
-    if (!p.layout || !p.figsize) throw new Error("Missing keys");
+  const config = parseConfig(raw);
+  if (!config) return;
 
-    handleReset(p.layout, p.figsize, "Configuration loaded successfully");
-  } catch (err) {
-    toast.error("Invalid Configuration", {
-      description: "The JSON format you pasted is incorrect or corrupted.",
-    });
-  }
+  handleReset(
+    config.layout,
+    config.figsize,
+    "Configuration loaded successfully"
+  );
 };
 
 const Sidebar: React.FC<SidebarProps> = ({

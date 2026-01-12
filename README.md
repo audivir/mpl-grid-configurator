@@ -96,3 +96,5 @@ To finalize the layout, adjust the code:
 - Place the icons for rotate in the center of the separator
 - Put the other icons in a new line below the drop down menu if the size of the panel is too small
 - Show a preview which panel gets expanded in case of a delete while hovering over the delete icon
+- Show a spinner hovering spinner while loading (at the position of the change happening)
+- Multiple overlay states, none/only separators/all

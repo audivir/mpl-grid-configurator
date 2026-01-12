@@ -1,15 +1,35 @@
+import { z } from "zod";
+
 export type RestructuredLayout = import("react-resizable-panels").Layout;
-export type Orientation = "row" | "column";
 export type Resize = [string, [number, number]] | null;
 export type RestructureInfo = [number[], [number, number]] | null;
+
+const OrientationSchema = z.enum(["row", "column"]);
+export type Orientation = z.infer<typeof OrientationSchema>;
 export type LayoutNode = {
   orient: Orientation;
   children: [Layout, Layout];
   ratios: [number, number];
 };
 export type Layout = string | LayoutNode;
+const LayoutNodeSchema: z.ZodType<LayoutNode> = z.lazy(() =>
+  z.object({
+    orient: OrientationSchema,
+    children: z.tuple([LayoutSchema, LayoutSchema]),
+    ratios: z.tuple([z.number(), z.number()]),
+  })
+);
+const LayoutSchema: z.ZodType<Layout> = z.lazy(() =>
+  z.union([LayoutNodeSchema, z.string()])
+);
 
-export type FigSize = [number, number];
+const FigSizeSchema = z.tuple([z.number(), z.number()]);
+export type FigSize = z.infer<typeof FigSizeSchema>;
+
+export const ConfigSchema = z.object({
+  layout: LayoutSchema,
+  figsize: FigSizeSchema,
+});
 
 /**
  * Get the leaf or node at the given path.
