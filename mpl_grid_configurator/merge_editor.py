@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from mpl_grid_configurator.types import (
         Change,
         Layout,
+        LPath,
         SubFigure_,
     )
 
@@ -20,8 +21,8 @@ if TYPE_CHECKING:
 def merge(  # noqa: PLR0913
     layout: Layout,
     root: SubFigure_,
-    path1: tuple[int, ...],
-    path2: tuple[int, ...],
+    path1: LPath,
+    path2: LPath,
     subfigs: MutableMapping[str, list[SubFigure_]],
     svg_callback: Callable[[str], str],
 ) -> tuple[Layout, SubFigure_, list[Change], Callable[[str], str]]:
@@ -69,33 +70,33 @@ def unmerge(
 # ruff: noqa: ERA001
 # TODO(tihoph): static type arguments for Change?
 # class DeleteKwargs(TypedDict):
-#     path: tuple[int, ...]
+#     path: LPath
 
 
 # class InsertKwargs(TypedDict):
-#     path: tuple[int, ...]
-#     orient: Orientation
-#     ratios: tuple[float, float]
+#     path: LPath
+#     orient: Orient
+#     ratios: Ratios
 #     value: str
 
 
 # class ReplaceKwargs(TypedDict):
-#     path: tuple[int, ...]
+#     path: LPath
 #     value: str
 
 
 # class RestructureKwargs(TypedDict):
-#     path: tuple[int, ...]
-#     ratios: tuple[float, float]
+#     path: LPath
+#     ratios: Ratios
 
 
 # class RotateKwargs(TypedDict):
-#     path: tuple[int, ...]
+#     path: LPath
 
 
 # class SplitKwargs(TypedDict):
-#     path: tuple[int, ...]
-#     orient: Orientation
+#     path: LPath
+#     orient: Orient
 
 
 # Change: TypeAlias = (

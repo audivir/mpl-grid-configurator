@@ -1,14 +1,16 @@
-import { LayoutNode, FigSize } from "./layout";
+import { LayoutNode, FigureSize, Ratios, Orient } from "./layout";
 
 export const API_BASE = "http://localhost:8765";
-export const DEFAULT_DPI = 96;
+export const DEFAULT_ORIENT = "row" as Orient;
+export const DEFAULT_LEAF = "draw_empty";
+export const DEFAULT_RATIOS = [50, 50] as Ratios;
 export const DEFAULT_LAYOUT = {
-  orient: "row",
-  children: ["draw_empty", "draw_empty"],
-  ratios: [50, 50],
+  orient: DEFAULT_ORIENT,
+  children: [DEFAULT_LEAF, DEFAULT_LEAF],
+  ratios: DEFAULT_RATIOS,
 } as LayoutNode;
-export const DEFAULT_FIGSIZE = [8, 4] as FigSize;
-export const RENDER_DEBOUNCE = 150;
+export const DEFAULT_DPI = 96;
+export const DEFAULT_FIGSIZE = [8, 4] as FigureSize;
 export const RESIZE_DEBOUNCE = 50;
 export const RESIZE_EPSILON = 0.01;
 export const STORAGE_KEYS = {

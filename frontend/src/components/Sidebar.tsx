@@ -22,13 +22,13 @@ import { LayoutActions } from "../lib/actions";
 import { DEFAULT_FIGSIZE, DEFAULT_LAYOUT, STORAGE_KEYS } from "../lib/const";
 import { copyContentToClipboard, downloadContent } from "../lib/content";
 import { History } from "../lib/history";
-import { ConfigSchema, FigSize, Layout } from "../lib/layout";
+import { ConfigSchema, FigureSize, Layout } from "../lib/layout";
 
 interface SidebarProps {
   layout: Layout;
-  figsize: FigSize;
-  figsizePreview: FigSize;
-  setFigsizePreview: (v: SetStateAction<FigSize>) => void;
+  figsize: FigureSize;
+  figsizePreview: FigureSize;
+  setFigsizePreview: (v: SetStateAction<FigureSize>) => void;
   zoom: number;
   setZoom: (v: SetStateAction<number>) => void;
   showOverlay: boolean;
@@ -61,7 +61,7 @@ const parseConfig = (raw: string) => {
 };
 
 const handleImport = (
-  handleReset: (l: Layout, fs: FigSize, msg?: string) => Promise<void>
+  handleReset: (l: Layout, fs: FigureSize, msg?: string) => Promise<void>
 ) => {
   const raw = window.prompt("Paste Config JSON:");
   if (!raw) return;

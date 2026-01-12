@@ -1,20 +1,22 @@
 import { z } from "zod";
 
+export type LPath = number[];
+export type Ratios = [number, number];
 export type RestructuredLayout = import("react-resizable-panels").Layout;
-export type Resize = [string, [number, number]] | null;
-export type RestructureInfo = [number[], [number, number]] | null;
+export type Resize = [string, Ratios] | null;
+export type RestructureInfo = [LPath, Ratios] | null;
 
-const OrientationSchema = z.enum(["row", "column"]);
-export type Orientation = z.infer<typeof OrientationSchema>;
+const OrientSchema = z.enum(["row", "column"]);
+export type Orient = z.infer<typeof OrientSchema>;
 export type LayoutNode = {
-  orient: Orientation;
+  orient: Orient;
   children: [Layout, Layout];
-  ratios: [number, number];
+  ratios: Ratios;
 };
 export type Layout = string | LayoutNode;
 const LayoutNodeSchema: z.ZodType<LayoutNode> = z.lazy(() =>
   z.object({
-    orient: OrientationSchema,
+    orient: OrientSchema,
     children: z.tuple([LayoutSchema, LayoutSchema]),
     ratios: z.tuple([z.number(), z.number()]),
   })
@@ -23,18 +25,18 @@ const LayoutSchema: z.ZodType<Layout> = z.lazy(() =>
   z.union([LayoutNodeSchema, z.string()])
 );
 
-const FigSizeSchema = z.tuple([z.number(), z.number()]);
-export type FigSize = z.infer<typeof FigSizeSchema>;
+const FigureSizeSchema = z.tuple([z.number(), z.number()]);
+export type FigureSize = z.infer<typeof FigureSizeSchema>;
 
 export const ConfigSchema = z.object({
   layout: LayoutSchema,
-  figsize: FigSizeSchema,
+  figsize: FigureSizeSchema,
 });
 
 /**
  * Get the leaf or node at the given path.
  */
-export const getAt = (layout: Layout, path: number[]) => {
+export const getAt = (layout: Layout, path: LPath) => {
   if (path.length === 0) return layout;
   if (typeof layout !== "object")
     throw new Error("Invalid path: must be object if path is not empty");
@@ -50,7 +52,7 @@ export const getAt = (layout: Layout, path: number[]) => {
 /**
  * Get the node at the given path.
  */
-export const getNode = (layout: Layout, path: number[]) => {
+export const getNode = (layout: Layout, path: LPath) => {
   const target = getAt(layout, path);
   if (typeof target !== "object")
     throw new Error("Invalid path: must be object at end");
@@ -60,7 +62,7 @@ export const getNode = (layout: Layout, path: number[]) => {
 /**
  * Get the leaf at the given path.
  */
-export const getLeaf = (layout: Layout, path: number[]) => {
+export const getLeaf = (layout: Layout, path: LPath) => {
   const target = getAt(layout, path);
   if (typeof target !== "string")
     throw new Error("Invalid path: must be string at end");
@@ -70,7 +72,7 @@ export const getLeaf = (layout: Layout, path: number[]) => {
 /**
  * Set the node at the given path.
  */
-export const setNode = (layout: LayoutNode, path: number[], val: Layout) => {
+export const setNode = (layout: LayoutNode, path: LPath, val: Layout) => {
   if (typeof layout === "string")
     throw new Error("Invalid layout: cant set at string");
   if (path.length === 0)

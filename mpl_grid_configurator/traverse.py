@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Literal, TypeVar, overload
 from matplotlib.figure import Figure
 
 if TYPE_CHECKING:
-    from mpl_grid_configurator.types import Figure_, Layout, LayoutNode, LayoutT, SubFigure_
+    from mpl_grid_configurator.types import Figure_, Layout, LayoutNode, LayoutT, LPath, SubFigure_
 
 
 T = TypeVar("T")
@@ -25,7 +25,7 @@ def almost_equal(a: float, b: float) -> bool:
     return abs(a - b) < EPSILON
 
 
-def get_subfig(fig: SubFigure_, path: tuple[int, ...]) -> SubFigure_:
+def get_subfig(fig: SubFigure_, path: LPath) -> SubFigure_:
     """Get the subfigure at the given path."""
     if not path:
         raise TraversalError("Root figure is not a subfigure")
@@ -41,7 +41,7 @@ def get_subfig(fig: SubFigure_, path: tuple[int, ...]) -> SubFigure_:
     return curr
 
 
-def get_at(node: Layout, path: tuple[int, ...]) -> Layout:
+def get_at(node: Layout, path: LPath) -> Layout:
     """Get the node or leaf at the given path.
 
     Raises:
@@ -61,7 +61,7 @@ def get_at(node: Layout, path: tuple[int, ...]) -> Layout:
     return curr
 
 
-def get_node(node: LayoutNode, path: tuple[int, ...]) -> LayoutNode:
+def get_node(node: LayoutNode, path: LPath) -> LayoutNode:
     """Get the node at the given path.
 
     Raises:
@@ -73,7 +73,7 @@ def get_node(node: LayoutNode, path: tuple[int, ...]) -> LayoutNode:
     return elem
 
 
-def get_leaf(node: Layout, path: tuple[int, ...]) -> str:
+def get_leaf(node: Layout, path: LPath) -> str:
     """Get the leaf at the given path.
 
     Raises:
@@ -86,14 +86,14 @@ def get_leaf(node: Layout, path: tuple[int, ...]) -> str:
 
 
 @overload
-def set_node(node: LayoutNode, path: tuple[int, ...], value: LayoutNode) -> LayoutNode: ...
+def set_node(node: LayoutNode, path: LPath, value: LayoutNode) -> LayoutNode: ...
 @overload
-def set_node(node: str, path: tuple[int, ...], value: LayoutT) -> LayoutT: ...
+def set_node(node: str, path: LPath, value: LayoutT) -> LayoutT: ...
 @overload
-def set_node(node: LayoutNode, path: tuple[int, ...], value: str) -> Layout: ...  # depends on path
+def set_node(node: LayoutNode, path: LPath, value: str) -> Layout: ...  # depends on path
 
 
-def set_node(node: Layout, path: tuple[int, ...], value: Layout) -> Layout:
+def set_node(node: Layout, path: LPath, value: Layout) -> Layout:
     """Set the node or leaf at the given path.
 
     Raises:
@@ -110,7 +110,7 @@ def set_node(node: Layout, path: tuple[int, ...], value: Layout) -> Layout:
     return node
 
 
-def get_lca_path(path1: tuple[int, ...], path2: tuple[int, ...]) -> tuple[int, ...]:
+def get_lca_path(path1: LPath, path2: LPath) -> LPath:
     """Get the path to the lowest common ancestor of two paths."""
     common: list[int] = []
     for ix, jx in zip(path1, path2, strict=False):
@@ -122,9 +122,7 @@ def get_lca_path(path1: tuple[int, ...], path2: tuple[int, ...]) -> tuple[int, .
     return tuple(common)
 
 
-def get_lca(
-    node: LayoutNode, path1: tuple[int, ...], path2: tuple[int, ...]
-) -> tuple[LayoutNode, tuple[int, ...], tuple[int, ...], tuple[int, ...]]:
+def get_lca(node: LayoutNode, path1: LPath, path2: LPath) -> tuple[LayoutNode, LPath, LPath, LPath]:
     """Get the lowest common ancestor of two paths.
 
     Returns:
@@ -195,10 +193,10 @@ def adjust_node_id(node: LayoutT, mode: Literal["add", "remove"] = "add") -> Lay
 def find_path_by_id(
     node: LayoutNode | str,
     id_to_find: str,
-    path: tuple[int, ...] = (),
+    path: LPath = (),
     *,
     use_full_id: bool = False,
-) -> tuple[int, ...] | None:
+) -> LPath | None:
     """Find the path to the node with the given id.
 
     Args:

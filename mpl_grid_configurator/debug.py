@@ -16,15 +16,16 @@ if TYPE_CHECKING:
 
     from mpl_grid_configurator.types import (
         BoundingBox,
-        FigTree,
         Figure_,
+        FigureTree,
         Layout,
         LayoutNode,
+        LPath,
         SubFigure_,
     )
 
 
-def print_tree(node: Layout, _depth: int = 0, _path: tuple[int, ...] = ()) -> None:
+def print_tree(node: Layout, _depth: int = 0, _path: LPath = ()) -> None:
     """Print the tree in a human-readable format. Debugging tool."""
     if _depth == 0 and isinstance(node, str):
         print(f"Root: {_path} {node}")  # noqa: T201
@@ -38,7 +39,7 @@ def print_tree(node: Layout, _depth: int = 0, _path: tuple[int, ...] = ()) -> No
             print_tree(child, _depth + 1, (*_path, ix))
 
 
-def build_fig_tree(fig: Figure_ | SubFigure_, _forward: bool = False) -> FigTree:
+def build_fig_tree(fig: Figure_ | SubFigure_, _forward: bool = False) -> FigureTree:
     """Build a tree of the figure and its subfigures."""
     if not _forward:
         while not isinstance(fig, Figure):
@@ -56,9 +57,9 @@ def build_fig_tree(fig: Figure_ | SubFigure_, _forward: bool = False) -> FigTree
 
 
 def print_fig_tree(
-    fig_tree: FigTree,
+    fig_tree: FigureTree,
     _depth: int = 0,
-    _path: tuple[int, ...] = (),
+    _path: LPath = (),
 ) -> None:
     """Print the figure tree in a human-readable format. Debugging tool."""
     name, _, n_ax, children = fig_tree
@@ -155,7 +156,7 @@ def draw_bboxes(bbox_mapping: Mapping[str, BoundingBox], file: StrPath) -> None:
     fig.savefig(file)
 
 
-def get_subfigure_path(cont: Figure_ | SubFigure_) -> tuple[int, ...]:
+def get_subfigure_path(cont: Figure_ | SubFigure_) -> LPath:
     """Get the path of a subfigure. If `cont` is a figure, return an empty tuple."""
     if isinstance(cont, Figure):  # root
         return ()

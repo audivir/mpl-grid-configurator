@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from _typeshed import StrPath
 
     from mpl_grid_configurator.apply import Change
-    from mpl_grid_configurator.types import Layout, SubFigure_
+    from mpl_grid_configurator.types import FigureSize, Layout, SubFigure_
 
 ChangeFixture: TypeAlias = "tuple[Layout, Layout, Change, Any]"
 
@@ -51,7 +51,7 @@ def assert_figure_equals_layout(
     fig_to_compare: SubFigure_,
     layout_to_compare_to: Layout,
     tmp_path: Path,
-    figsize: tuple[float, float] = (8, 8),
+    figsize: FigureSize = (8, 8),
 ) -> None:
     file1 = tmp_path / f"{uuid.uuid4()}.png"
     savefig(fig_to_compare, file1)
@@ -60,6 +60,6 @@ def assert_figure_equals_layout(
     assert_figures_equal(fig_to_compare, fig2, tmp_path)
 
 
-def render_fig(root: Layout, figsize: tuple[float, float] = (8, 8)) -> SubFigure_:
+def render_fig(root: Layout, figsize: FigureSize = (8, 8)) -> SubFigure_:
     fig, _ = render_layout(root, figsize, DRAW_FUNCS)
     return fig

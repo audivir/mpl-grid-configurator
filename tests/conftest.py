@@ -7,13 +7,14 @@ import pytest
 
 from mpl_grid_configurator.debug import draw_text
 from mpl_grid_configurator.register import DRAW_FUNCS, register
+from mpl_grid_configurator.render import DEFAULT_LEAF
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
     from matplotlib.axes import Axes
 
-    from mpl_grid_configurator.types import Figure_, LayoutNode, SubFigure_
+    from mpl_grid_configurator.types import Figure_, LayoutNode, LPath, SubFigure_
 
 pytest_plugins = ("changes",)
 
@@ -44,7 +45,7 @@ def define_draw_funcs(reset_draw_funcs: None) -> None:
     def draw_axes(fig: Figure_ | SubFigure_) -> Axes:
         return fig.add_subplot()
 
-    DRAW_FUNCS["draw_empty"] = draw_axes  # type: ignore[assignment]
+    DRAW_FUNCS[DEFAULT_LEAF] = draw_axes  # type: ignore[assignment]
 
     texts = [f"f{ix}{o}" for ix in range(10) for o in ("l", "r")]
     texts += [f"f{ix}" for ix in range(10)]
@@ -95,7 +96,7 @@ def simple_root() -> LayoutNode:
     return get_simple_root()
 
 
-def get_simple_root_nodes(simple_root: LayoutNode) -> dict[tuple[int, ...], LayoutNode]:
+def get_simple_root_nodes(simple_root: LayoutNode) -> dict[LPath, LayoutNode]:
     return {
         (): simple_root,
         (0,): simple_root["children"][0],  # type: ignore[dict-item]
@@ -109,11 +110,11 @@ def get_simple_root_nodes(simple_root: LayoutNode) -> dict[tuple[int, ...], Layo
     params=get_simple_root_nodes(get_simple_root()).items(),
     ids=lambda item: f"{item[0]}",
 )
-def simple_root_node_item(request: pytest.FixtureRequest) -> tuple[tuple[int, ...], LayoutNode]:
+def simple_root_node_item(request: pytest.FixtureRequest) -> tuple[LPath, LayoutNode]:
     return request.param
 
 
-def get_simple_root_leafs() -> dict[tuple[int, ...], str]:
+def get_simple_root_leafs() -> dict[LPath, str]:
     return {
         (0, 0): "f1l",
         (0, 1, 0): "f2l",
@@ -125,12 +126,12 @@ def get_simple_root_leafs() -> dict[tuple[int, ...], str]:
 
 
 @pytest.fixture
-def simple_root_leafs() -> dict[tuple[int, ...], str]:
+def simple_root_leafs() -> dict[LPath, str]:
     return get_simple_root_leafs()
 
 
 @pytest.fixture(params=get_simple_root_leafs().items(), ids=lambda item: f"{item[0]}->{item[1]}")
-def simple_root_leaf_item(request: pytest.FixtureRequest) -> tuple[tuple[int, ...], str]:
+def simple_root_leaf_item(request: pytest.FixtureRequest) -> tuple[LPath, str]:
     return request.param
 
 

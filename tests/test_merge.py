@@ -22,7 +22,7 @@ from mpl_grid_configurator.traverse import are_nodes_equal
 from mpl_grid_configurator.types import BoundingBox, Edge
 
 if TYPE_CHECKING:
-    from mpl_grid_configurator.types import LayoutNode, Orientation
+    from mpl_grid_configurator.types import LayoutNode, LPath, Orient
 
 
 def assert_layout_equal(root: LayoutNode, mutated_root: LayoutNode) -> None:
@@ -32,7 +32,7 @@ def assert_layout_equal(root: LayoutNode, mutated_root: LayoutNode) -> None:
     assert are_bbox_mappings_equal(orig_bbox_mapping, mutated_bbox_mapping)
 
 
-def merge_paths_by_id(root: LayoutNode, id1: str, id2: str) -> tuple[LayoutNode, tuple[int, ...]]:
+def merge_paths_by_id(root: LayoutNode, id1: str, id2: str) -> tuple[LayoutNode, LPath]:
     """Merge two paths by their IDs."""
     root_copy = deepcopy(root)
     path1 = find_path_by_id(root, id1, use_full_id=True)
@@ -45,7 +45,7 @@ def merge_paths_by_id(root: LayoutNode, id1: str, id2: str) -> tuple[LayoutNode,
 
 
 def assert_merge_paths_equal_layout(
-    root: LayoutNode, id1: str, id2: str, expected_lca: tuple[int, ...] = ()
+    root: LayoutNode, id1: str, id2: str, expected_lca: LPath = ()
 ) -> None:
     """Assert that two paths merge and keep the same layout."""
     mutated_root, lca_path = merge_paths_by_id(root, id1, id2)
@@ -61,7 +61,7 @@ def assert_merge_paths_equal_layout(
         (BoundingBox(0.5, 1.5, 1.0, 2.0), "column", Edge(1.0, 2.0)),
     ],
 )
-def test_get_edge(bbox: BoundingBox, orient: Orientation, expected: Edge) -> None:
+def test_get_edge(bbox: BoundingBox, orient: Orient, expected: Edge) -> None:
     assert get_edge(bbox, orient) == expected
 
 
@@ -110,7 +110,7 @@ def test_get_bbox_mapping_simple_root(simple_root: LayoutNode) -> None:
 def test_are_bboxes_touching(
     id1: str,
     id2: str,
-    expected: Orientation | Literal["corner", "no_overlap", "too_small_overlap"] | None,
+    expected: Orient | Literal["corner", "no_overlap", "too_small_overlap"] | None,
     lca_root: LayoutNode,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -260,7 +260,7 @@ def test_merge_paths_with_reorientation(simple_root: LayoutNode) -> None:
     ("id1", "id2", "expected_lca"), [("f3r", "f4r", (0, 1)), ("f1l", "f3r", (0,))]
 )
 def test_merge_paths_with_lca(
-    lca_root: LayoutNode, id1: str, id2: str, expected_lca: tuple[int, ...]
+    lca_root: LayoutNode, id1: str, id2: str, expected_lca: LPath
 ) -> None:
     """Test merging paths if they have a common ancestor."""
     assert_merge_paths_equal_layout(lca_root, id1, id2, expected_lca)

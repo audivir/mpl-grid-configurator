@@ -7,7 +7,7 @@ import { useLayoutActions } from "./lib/actions";
 import { STORAGE_KEYS, DEFAULT_LAYOUT, DEFAULT_FIGSIZE } from "./lib/const";
 import useHistory from "./lib/history";
 import useInit from "./lib/init";
-import { FigSize } from "./lib/layout";
+import { FigureSize } from "./lib/layout";
 import { useRestructure } from "./lib/restructure";
 
 const App: React.FC = () => {
@@ -45,7 +45,7 @@ const App: React.FC = () => {
     localStorage.setItem(STORAGE_KEYS.LAYOUT, JSON.stringify(layout));
   }, [layout, figsize]);
 
-  const [figsizePreview, setFigsizePreview] = useState<FigSize>(figsize);
+  const [figsizePreview, setFigsizePreview] = useState<FigureSize>(figsize);
 
   useEffect(() => {
     setFigsizePreview(figsize);

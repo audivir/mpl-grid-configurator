@@ -1,9 +1,9 @@
 import React from "react";
 import { DEFAULT_DPI } from "../lib/const";
-import { FigSize } from "../lib/layout";
+import { FigureSize } from "../lib/layout";
 
 interface PreviewOverlayProps {
-  figsize: FigSize;
+  figsize: FigureSize;
 }
 
 const PreviewOverlay: React.FC<PreviewOverlayProps> = ({ figsize }) => {

@@ -1,11 +1,18 @@
 import { toast } from "sonner";
 import { API_BASE } from "./const";
-import { FigSize, Layout, Orientation, RestructureInfo } from "./layout";
+import {
+  FigureSize,
+  Layout,
+  LPath,
+  Orient,
+  RestructureInfo,
+  Ratios,
+} from "./layout";
 
 // Standard response for layout-modifying operations
 export interface FullResponse {
   token: string;
-  figsize: FigSize;
+  figsize: FigureSize;
   layout: Layout;
   svg: string;
 }
@@ -75,7 +82,7 @@ export const api = {
   health: (tok: string | null) =>
     apiRequest<boolean>("/health", "GET", null, tok, "Health Failed"),
 
-  render: (l: Layout, fs: FigSize, tok: string | null) =>
+  render: (l: Layout, fs: FigureSize, tok: string | null) =>
     apiRequest<FullResponse>(
       "/render",
       "POST",
@@ -84,7 +91,7 @@ export const api = {
       "Render Failed"
     ),
 
-  session: (l: Layout, fs: FigSize) => {
+  session: (l: Layout, fs: FigureSize) => {
     console.log("Session Request", l, fs);
     return apiRequest<FullResponse>(
       "/session",
@@ -96,7 +103,7 @@ export const api = {
   },
 
   edit: {
-    delete: (path: number[], tok: string | null) =>
+    delete: (path: LPath, tok: string | null) =>
       apiRequest<FullResponse>(
         "/edit/delete",
         "POST",
@@ -106,9 +113,9 @@ export const api = {
       ),
 
     insert: (
-      path: number[],
-      orient: Orientation,
-      ratios: number[],
+      path: LPath,
+      orient: Orient,
+      ratios: Ratios,
       value: string,
       tok: string | null
     ) =>
@@ -120,7 +127,7 @@ export const api = {
         "Insert Failed"
       ),
 
-    merge: (pathA: number[], pathB: number[], tok: string | null) =>
+    merge: (pathA: LPath, pathB: LPath, tok: string | null) =>
       apiRequest<MergeResponse>(
         "/edit/merge",
         "POST",
@@ -129,7 +136,7 @@ export const api = {
         "Merge Failed"
       ),
 
-    replace: (path: number[], value: string, tok: string | null) =>
+    replace: (path: LPath, value: string, tok: string | null) =>
       apiRequest<FullResponse>(
         "/edit/replace",
         "POST",
@@ -138,7 +145,7 @@ export const api = {
         "Replace Failed"
       ),
 
-    resize: (fs: FigSize, tok: string | null) =>
+    resize: (fs: FigureSize, tok: string | null) =>
       apiRequest<FullResponse>(
         "/edit/resize",
         "POST",
@@ -160,7 +167,7 @@ export const api = {
         "Restructure Failed"
       ),
 
-    rotate: (path: number[], tok: string | null) =>
+    rotate: (path: LPath, tok: string | null) =>
       apiRequest<FullResponse>(
         "/edit/rotate",
         "POST",
@@ -169,7 +176,7 @@ export const api = {
         "Rotate Failed"
       ),
 
-    split: (path: number[], orient: Orientation, tok: string | null) =>
+    split: (path: LPath, orient: Orient, tok: string | null) =>
       apiRequest<FullResponse>(
         "/edit/split",
         "POST",
@@ -178,7 +185,7 @@ export const api = {
         "Split Failed"
       ),
 
-    swap: (pathA: number[], pathB: number[], tok: string | null) =>
+    swap: (pathA: LPath, pathB: LPath, tok: string | null) =>
       apiRequest<FullResponse>(
         "/edit/swap",
         "POST",

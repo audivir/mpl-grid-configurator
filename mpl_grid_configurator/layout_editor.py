@@ -3,8 +3,13 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
+from mpl_grid_configurator.render import (
+    DEFAULT_LEAF,
+    DEFAULT_RATIOS,
+    DefaultLeafT,
+)
 from mpl_grid_configurator.traverse import (
     almost_equal,
     get_at,
@@ -18,7 +23,9 @@ if TYPE_CHECKING:
         Layout,
         LayoutNode,
         LayoutT,
-        Orientation,
+        LPath,
+        Orient,
+        Ratios,
     )
 
 
@@ -29,7 +36,7 @@ class LayoutEditor:
     """Layout editor. Methods currently mutate the layout."""
 
     @staticmethod
-    def delete(layout: Layout, path: tuple[int, ...]) -> tuple[Layout, Change, Layout]:
+    def delete(layout: Layout, path: LPath) -> tuple[Layout, Change, Layout]:
         """Delete a leaf from the layout.
 
         Returns:
@@ -45,7 +52,7 @@ class LayoutEditor:
         removed = get_at(parent, (curr_ix,))
         sibling = parent["children"][sibling_ix]
 
-        if curr_ix == 1 and parent["ratios"] == (50, 50) and removed == "draw_empty":
+        if curr_ix == 1 and parent["ratios"] == DEFAULT_RATIOS and removed == DEFAULT_LEAF:
             backward: Change = (
                 "split",
                 parent_path,
@@ -76,11 +83,11 @@ class LayoutEditor:
     def insert(
         cls,
         layout: Layout,
-        path: tuple[int, ...],
-        orient: Orientation,
-        ratios: tuple[float, float],
+        path: LPath,
+        orient: Orient,
+        ratios: Ratios,
         value: Layout,
-    ) -> tuple[Layout, Change, Literal["draw_empty"]]:
+    ) -> tuple[Layout, Change, DefaultLeafT]:
         """Prepare the layout and figure for an insert."""
         if not path:
             raise ValueError("Cannot insert as root")
@@ -95,12 +102,12 @@ class LayoutEditor:
             layout, _ = cls.swap(layout, (*parent_path, 0), (*parent_path, 1))
 
         layout, _, _ = cls.replace(layout, path, value)  # type: ignore[type-var]
-        return layout, ("delete", path, {}), "draw_empty"
+        return layout, ("delete", path, {}), DEFAULT_LEAF
 
     @staticmethod
     def replace(
         layout: Layout,
-        path: tuple[int, ...],
+        path: LPath,
         value: LayoutT,
     ) -> tuple[Layout, Change, Layout]:
         """Replace a leaf in the layout only.
@@ -116,9 +123,7 @@ class LayoutEditor:
         return layout, backward, removed
 
     @staticmethod
-    def restructure(
-        layout: Layout, path: tuple[int, ...], ratios: tuple[float, float]
-    ) -> tuple[Layout, Change]:
+    def restructure(layout: Layout, path: LPath, ratios: Ratios) -> tuple[Layout, Change]:
         """Restructure a node."""
         if isinstance(layout, str):
             raise ValueError("Cannot resize unsplitted root")  # noqa: TRY004
@@ -133,7 +138,7 @@ class LayoutEditor:
         return set_node(layout, path, node), ("restructure", path, {"ratios": prev})
 
     @staticmethod
-    def rotate(layout: Layout, path: tuple[int, ...]) -> tuple[Layout, Change]:
+    def rotate(layout: Layout, path: LPath) -> tuple[Layout, Change]:
         """Rotate a node."""
         if isinstance(layout, str):
             raise ValueError("Cannot rotate unsplitted root")  # noqa: TRY004
@@ -144,21 +149,19 @@ class LayoutEditor:
         return set_node(layout, path, node), ("rotate", path, {})
 
     @staticmethod
-    def split(layout: Layout, path: tuple[int, ...], orient: Orientation) -> tuple[Layout, Change]:
+    def split(layout: Layout, path: LPath, orient: Orient) -> tuple[Layout, Change]:
         """Split a leaf into two leaves."""
         elem = get_at(layout, path)
         new_node: LayoutNode = {
             "orient": orient,
-            "children": (elem, "draw_empty"),
-            "ratios": (50, 50),
+            "children": (elem, DEFAULT_LEAF),
+            "ratios": DEFAULT_RATIOS,
         }
 
         return set_node(layout, path, new_node), ("delete", (*path, 1), {})
 
     @staticmethod
-    def swap(
-        layout: Layout, path1: tuple[int, ...], path2: tuple[int, ...]
-    ) -> tuple[Layout, Change]:
+    def swap(layout: Layout, path1: LPath, path2: LPath) -> tuple[Layout, Change]:
         """Swap two elements in the layout."""
         if isinstance(layout, str):
             raise ValueError("Cannot swap root")  # noqa: TRY004

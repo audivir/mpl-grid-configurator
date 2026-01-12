@@ -6,33 +6,31 @@ import { FullResponse } from "./api";
 import { RESIZE_DEBOUNCE, RESIZE_EPSILON } from "./const";
 import {
   Layout,
-  FigSize,
+  FigureSize,
   Resize,
   getNode,
   RestructureInfo,
   RestructuredLayout,
+  Ratios,
 } from "./layout";
 import { HistoryActionType } from "./history";
 import { ApiCall, apiCalls } from "./apiCalls";
 
 interface UseRestructureProps {
   layout: Layout;
-  figsize: FigSize;
+  figsize: FigureSize;
   sessionToken: string | null;
   setSvgContent: (svg: string) => void;
   executeAction: (
     type: HistoryActionType,
-    apiCallBuilder: (l: Layout, f: FigSize) => ApiCall<FullResponse | null>
+    apiCallBuilder: (l: Layout, f: FigureSize) => ApiCall<FullResponse | null>
   ) => Promise<FullResponse | null>;
 }
 
 /**
  * Checks if the ratios have changed by more than a small epsilon
  */
-const didResize = (
-  oldRatios: [number, number],
-  newRatios: [number, number]
-) => {
+const didResize = (oldRatios: Ratios, newRatios: Ratios) => {
   return oldRatios.some(
     (val, idx) => Math.abs(val - newRatios[idx]) > RESIZE_EPSILON
   );

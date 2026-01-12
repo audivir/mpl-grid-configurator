@@ -12,7 +12,7 @@ from mpl_grid_configurator.apply import apply_to_figure, apply_to_layout, is_com
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from mpl_grid_configurator.types import Layout, LayoutNode
+    from mpl_grid_configurator.types import Layout, LayoutNode, LPath
 
 
 FIXTURES = [
@@ -101,9 +101,7 @@ def test_apply_to_figure(
     assert_figure_equals_layout(root, pre_copy, tmp_path)
 
 
-def assert_rebuild(
-    layout: Layout, lca_path: tuple[int, ...], target_layout: Layout, tmp_path: Path
-) -> None:
+def assert_rebuild(layout: Layout, lca_path: LPath, target_layout: Layout, tmp_path: Path) -> None:
     rebuilt, forward, backward = rebuild(layout, lca_path, target_layout)
     assert rebuilt == target_layout
 

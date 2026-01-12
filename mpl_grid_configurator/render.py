@@ -4,14 +4,11 @@ from __future__ import annotations
 
 import io
 import logging
-from typing import IO, TYPE_CHECKING, Any, TypeVar
+from typing import IO, TYPE_CHECKING, Any, Literal, TypeAlias, TypeVar, get_args
 
 from matplotlib.figure import Figure
 
 from mpl_grid_configurator.types import (
-    Layout,
-    LayoutNode,
-    Orientation,
     is_str_draw_func,
     is_tuple_draw_func,
 )
@@ -22,7 +19,16 @@ if TYPE_CHECKING:
     from _typeshed import StrPath
     from matplotlib.axes import Axes
 
-    from mpl_grid_configurator.types import Figure_, SubFigure_
+    from mpl_grid_configurator.types import (
+        Figure_,
+        FigureSize,
+        Layout,
+        LayoutNode,
+        Orient,
+        Ratios,
+        SubFigure_,
+    )
+
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +36,20 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-def new_root(figsize: tuple[int, int] = (8, 8)) -> tuple[Figure_, SubFigure_]:
+def draw_empty(container: SubFigure_) -> Axes:
+    """Draw an empty plot."""
+    ax = container.subplots()
+    ax.axis("off")
+    return ax
+
+
+DefaultLeafT: TypeAlias = Literal["draw_empty"]
+DEFAULT_DRAW_FUNC = draw_empty
+DEFAULT_LEAF: DefaultLeafT = get_args(DefaultLeafT)[0]
+DEFAULT_RATIOS: Ratios = (50, 50)
+
+
+def new_root(figsize: FigureSize = (8, 8)) -> tuple[Figure_, SubFigure_]:
     """Create a new constrained Figure_ and its root figure."""
     fig: Figure_ = Figure(figsize, constrained_layout=True)  # type: ignore[assignment]
     fig.patch.set_visible(False)
@@ -41,8 +60,8 @@ def new_root(figsize: tuple[int, int] = (8, 8)) -> tuple[Figure_, SubFigure_]:
 
 def split_figure(
     container: Figure_ | SubFigure_,
-    orient: Orientation,
-    ratios: tuple[float, float],
+    orient: Orient,
+    ratios: Ratios,
 ) -> tuple[SubFigure_, SubFigure_]:
     """Split a figure into two subfigures with the given ratios and orientation."""
     is_row = orient == "row"
@@ -107,7 +126,7 @@ def render_recursive(
 
 
 def render_layout(
-    layout: Layout, figsize: tuple[float, float], draw_funcs: Mapping[str, Callable]
+    layout: Layout, figsize: FigureSize, draw_funcs: Mapping[str, Callable]
 ) -> tuple[SubFigure_, Callable[[str], str]]:
     """Render a layout."""
     from matplotlib.figure import Figure
@@ -140,13 +159,6 @@ def render_svg(root: Figure_ | SubFigure_, svg_callback: Callable[[str], str]) -
     savefig(root, buf, format="svg")
     final_svg = buf.getvalue().decode("utf-8")
     return svg_callback(final_svg)
-
-
-def draw_empty(container: SubFigure_) -> Axes:
-    """Draw an empty plot."""
-    ax = container.subplots()
-    ax.axis("off")
-    return ax
 
 
 def savefig(fig: Figure_ | SubFigure_, fname: StrPath | IO, **kwargs: Any) -> None:

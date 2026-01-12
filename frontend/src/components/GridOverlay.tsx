@@ -10,11 +10,11 @@ import {
   SwitchCamera,
 } from "lucide-react";
 import { LayoutActions } from "../lib/actions";
-import { FigSize, Layout } from "../lib/layout";
+import { FigureSize, Layout, LPath } from "../lib/layout";
 
 interface GridOverlayProps {
   layout: Layout;
-  figsize: FigSize;
+  figsize: FigureSize;
   zoom: number;
   funcs: string[];
   actions: LayoutActions;
@@ -22,7 +22,7 @@ interface GridOverlayProps {
 
 interface RecursiveGridProps {
   node: Layout;
-  path: number[];
+  path: LPath;
 }
 
 interface DragButtonProps {

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
-    from mpl_grid_configurator.types import Layout, Orientation, SubFigure_
+    from mpl_grid_configurator.types import FigureSize, Layout, LPath, Orient, SubFigure_
 
     Mode: TypeAlias = Literal["fig", "layout"]
 
@@ -34,8 +34,8 @@ def assert_edit(  # noqa: PLR0913
     pre: Layout,
     post: Layout,
     tmp_path: Path,
-    figsize: tuple[float, float] = (8, 8),
-    post_figsize: tuple[float, float] | None = None,
+    figsize: FigureSize = (8, 8),
+    post_figsize: FigureSize | None = None,
 ) -> CallbackR:
     if not post_figsize:
         post_figsize = figsize
@@ -469,8 +469,8 @@ def test_insert_fail(mode: Mode, tmp_path: Path, define_draw_funcs: None) -> Non
     pre: Layout = "f1l"
     post: Layout = "f1l"
 
-    path: tuple[int, ...] = ()
-    orient: Orientation = "row"
+    path: LPath = ()
+    orient: Orient = "row"
     ratios = (70, 30)
 
     def edit_callback(root: SubFigure_) -> None:

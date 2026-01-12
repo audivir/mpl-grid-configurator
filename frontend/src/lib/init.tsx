@@ -1,14 +1,14 @@
 import { SetStateAction, useEffect, useRef } from "react";
 import { api } from "./api";
 import { STORAGE_KEYS } from "./const";
-import { Layout, FigSize } from "./layout";
+import { Layout, FigureSize } from "./layout";
 
 interface UseInitProps {
   setIsInitializing: (v: SetStateAction<boolean>) => void;
   sessionToken: string | null;
   setSessionToken: (v: SetStateAction<string | null>) => void;
   layout: Layout;
-  figsize: FigSize;
+  figsize: FigureSize;
   setFuncs: (v: SetStateAction<string[]>) => void;
   setSvgContent: (v: SetStateAction<string>) => void;
 }

@@ -15,7 +15,7 @@ from mpl_grid_configurator.traverse import (
     get_leaf,
     set_node,
 )
-from mpl_grid_configurator.types import BoundingBox, Edge, Layout, LayoutNode, Orientation
+from mpl_grid_configurator.types import BoundingBox, Edge, Layout, LayoutNode, LPath, Orient
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -33,7 +33,7 @@ class MergeError(ValueError):
     """Invalid leafs selected for merge."""
 
 
-def get_edge(bbox: BoundingBox, orient: Orientation) -> Edge:
+def get_edge(bbox: BoundingBox, orient: Orient) -> Edge:
     """Get the edge of a bounding box."""
     if orient == "row":
         return Edge(bbox.x_min, bbox.x_max)
@@ -93,7 +93,7 @@ def get_bbox_mapping(
     return mapping
 
 
-def are_bboxes_touching(bbox1: BoundingBox, bbox2: BoundingBox) -> Orientation | None:
+def are_bboxes_touching(bbox1: BoundingBox, bbox2: BoundingBox) -> Orient | None:
     """Evaluate if and how two bounding boxes touch.
 
     Returns:
@@ -113,8 +113,8 @@ def are_bboxes_touching(bbox1: BoundingBox, bbox2: BoundingBox) -> Orientation |
         logger.debug("Bounding boxes share only a corner")
         return None
 
-    children_orient: Orientation = "row" if x_touch else "column"
-    edge_orient: Orientation = "column" if x_touch else "row"
+    children_orient: Orient = "row" if x_touch else "column"
+    edge_orient: Orient = "column" if x_touch else "row"
     edge1, edge2 = get_edge(bbox1, edge_orient), get_edge(bbox2, edge_orient)
     overlap_min = max(edge1.min, edge2.min)
     overlap_max = min(edge1.max, edge2.max)
@@ -141,7 +141,7 @@ def merge_bboxes(bbox1: BoundingBox, bbox2: BoundingBox) -> BoundingBox:
     )
 
 
-def get_bbox_size(bbox_mapping: Mapping[str, BoundingBox], orient: Orientation) -> float:
+def get_bbox_size(bbox_mapping: Mapping[str, BoundingBox], orient: Orient) -> float:
     """Get the size of the given bounding boxes in the given orientation."""
     return max(r.x_max if orient == "row" else r.y_max for r in bbox_mapping.values()) - min(
         r.x_min if orient == "row" else r.y_min for r in bbox_mapping.values()
@@ -157,7 +157,7 @@ def binary_space_partitioning(bbox_mapping: Mapping[str, BoundingBox]) -> Layout
     """
 
     def build_node(
-        orient: Orientation,
+        orient: Orient,
         map1: Mapping[str, BoundingBox],
         map2: Mapping[str, BoundingBox],
     ) -> LayoutNode:
@@ -216,7 +216,7 @@ def binary_space_partitioning(bbox_mapping: Mapping[str, BoundingBox]) -> Layout
 
 def rectify_bbox(
     to_rectify: BoundingBox,
-    orient: Orientation,
+    orient: Orient,
     bbox1: BoundingBox,
     bbox2: BoundingBox,
 ) -> BoundingBox:
@@ -228,7 +228,7 @@ def rectify_bbox(
     We must adjust ANY box that shares the old boundaries to the new target boundaries
     to maintain "guillotine" integrity (straight lines across the layout).
     """
-    other_orient: Orientation = "column" if orient == "row" else "row"
+    other_orient: Orient = "column" if orient == "row" else "row"
 
     edge1 = get_edge(bbox1, other_orient)
     edge2 = get_edge(bbox2, other_orient)
@@ -268,9 +268,9 @@ def rectify_bbox(
 
 def merge_paths(
     root: LayoutNode,
-    path1: tuple[int, ...],
-    path2: tuple[int, ...],
-) -> tuple[LayoutNode, tuple[int, ...]]:
+    path1: LPath,
+    path2: LPath,
+) -> tuple[LayoutNode, LPath]:
     """Merge two non-sibling, but fully touching leafs by their paths.
 
     Does not mutate the input node.

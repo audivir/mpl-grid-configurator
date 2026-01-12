@@ -9,13 +9,16 @@ from typing import TYPE_CHECKING
 from matplotlib.figure import Figure, SubFigure
 
 from mpl_grid_configurator.register import DRAW_FUNCS
-from mpl_grid_configurator.render import run_draw_func
+from mpl_grid_configurator.render import (
+    DEFAULT_LEAF,
+    run_draw_func,
+)
 from mpl_grid_configurator.traverse import get_subfig
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from mpl_grid_configurator.types import DrawFunc, Orientation, SubFigure_
+    from mpl_grid_configurator.types import DrawFunc, FigureSize, LPath, Orient, Ratios, SubFigure_
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +27,7 @@ class FigureEditor:
     """Figure editor. Mutates the figure."""
 
     @staticmethod
-    def delete(root: SubFigure_, path: tuple[int, ...]) -> tuple[SubFigure_, SubFigure_]:
+    def delete(root: SubFigure_, path: LPath) -> tuple[SubFigure_, SubFigure_]:
         """Remove a subfigure from the figure tree."""
         if not path:
             raise ValueError("Root figure cannot be deleted")
@@ -52,9 +55,9 @@ class FigureEditor:
     def insert(  # noqa: PLR0913
         cls,
         root: SubFigure_,
-        path: tuple[int, ...],
-        orient: Orientation,
-        ratios: tuple[float, float],
+        path: LPath,
+        orient: Orient,
+        ratios: Ratios,
         value: str,
         drawer: DrawFunc | SubFigure_,
     ) -> tuple[SubFigure_, SubFigure_, Callable[[str], str]]:
@@ -76,7 +79,7 @@ class FigureEditor:
     @staticmethod
     def replace(
         root: SubFigure_,
-        path: tuple[int, ...],
+        path: LPath,
         value: str,
         drawer: DrawFunc | SubFigure_,
     ) -> tuple[SubFigure_, SubFigure_, Callable[[str], str]]:
@@ -118,18 +121,18 @@ class FigureEditor:
         return new_sf, sf, svg_callback
 
     @staticmethod
-    def resize(root: SubFigure_, new_size: tuple[float, float]) -> None:
+    def resize(root: SubFigure_, figsize: FigureSize) -> None:
         """Resize the root figure."""
         parent = root._parent
         if not isinstance(parent, Figure):
             raise ValueError("Cannot resize non-root figure")  # noqa: TRY004
-        parent.set_size_inches(new_size)
+        parent.set_size_inches(figsize)
 
     @staticmethod
     def restructure(
         root: SubFigure_,
-        path: tuple[int, ...],
-        ratios: tuple[float, float],
+        path: LPath,
+        ratios: Ratios,
     ) -> None:
         """Restructure the two subfigures of a parent."""
         parent = get_subfig(root, path) if path else root
@@ -145,7 +148,7 @@ class FigureEditor:
             gs.set_height_ratios(ratios)
 
     @staticmethod
-    def rotate(root: SubFigure_, path: tuple[int, ...]) -> None:
+    def rotate(root: SubFigure_, path: LPath) -> None:
         """Rotate the two subfigures of a parent."""
         parent = get_subfig(root, path) if path else root
 
@@ -158,7 +161,7 @@ class FigureEditor:
         gs._row_height_ratios, gs._col_width_ratios = gs._col_width_ratios, gs._row_height_ratios  # type: ignore[attr-defined]
 
     @staticmethod
-    def split(root: SubFigure_, path: tuple[int, ...], orient: Orientation) -> SubFigure_:
+    def split(root: SubFigure_, path: LPath, orient: Orient) -> SubFigure_:
         """Split a subfigure into two subfigures. Returns the root subfigure."""
         if not path:
             sf = root
@@ -183,7 +186,7 @@ class FigureEditor:
         sf._subplotspec = gs[0]  # type: ignore[assignment]
 
         new_sf: SubFigure_ = wrapper_sf.add_subfigure(gs[1])  # type: ignore[assignment]
-        DRAW_FUNCS["draw_empty"](new_sf)  # type: ignore[call-arg]
+        DRAW_FUNCS[DEFAULT_LEAF](new_sf)  # type: ignore[call-arg]
         wrapper_sf.subfigs = [sf, new_sf]
 
         if not path:
@@ -191,7 +194,7 @@ class FigureEditor:
         return root
 
     @staticmethod
-    def swap(root: SubFigure_, path1: tuple[int, ...], path2: tuple[int, ...]) -> None:
+    def swap(root: SubFigure_, path1: LPath, path2: LPath) -> None:
         """Swap two subfigures even if they have different parents."""
         if not path1 or not path2:
             raise ValueError("Cannot swap root figure")

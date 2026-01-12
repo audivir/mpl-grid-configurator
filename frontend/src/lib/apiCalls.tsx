@@ -1,9 +1,11 @@
 import { api, FullResponse } from "./api";
 import {
   Layout,
-  FigSize,
+  LPath,
+  FigureSize,
   RestructureInfo,
-  Orientation,
+  Ratios,
+  Orient,
   getNode,
   getLeaf,
 } from "./layout";
@@ -16,7 +18,7 @@ export type ApiCall<T> = {
 export const apiCalls = {
   delete: (
     layout: Layout,
-    path: number[],
+    path: LPath,
     sessionToken: string | null
   ): ApiCall<FullResponse | null> => {
     const parentPath = path.slice(0, -1);
@@ -32,9 +34,9 @@ export const apiCalls = {
   },
 
   insert: (
-    path: number[],
-    orient: Orientation,
-    ratios: number[],
+    path: LPath,
+    orient: Orient,
+    ratios: Ratios,
     value: string,
     sessionToken: string | null
   ): ApiCall<FullResponse | null> => {
@@ -46,8 +48,8 @@ export const apiCalls = {
   },
 
   merge: (
-    pathA: number[],
-    pathB: number[],
+    pathA: LPath,
+    pathB: LPath,
     sessionToken: string | null
   ): ApiCall<FullResponse | null> => {
     let undoData: [string, { [key: string]: any }][] | null = null;
@@ -77,7 +79,7 @@ export const apiCalls = {
 
   replace: (
     layout: Layout,
-    path: number[],
+    path: LPath,
     value: string,
     sessionToken: string | null
   ): ApiCall<FullResponse | null> => {
@@ -89,8 +91,8 @@ export const apiCalls = {
   },
 
   resize: (
-    figsize: FigSize,
-    newFigsize: FigSize,
+    figsize: FigureSize,
+    newFigsize: FigureSize,
     sessionToken: string | null
   ): ApiCall<FullResponse | null> => {
     return {
@@ -137,7 +139,7 @@ export const apiCalls = {
   },
 
   rotate: (
-    path: number[],
+    path: LPath,
     sessionToken: string | null
   ): ApiCall<FullResponse | null> => {
     return {
@@ -147,8 +149,8 @@ export const apiCalls = {
   },
 
   split: (
-    path: number[],
-    orient: Orientation,
+    path: LPath,
+    orient: Orient,
     sessionToken: string | null
   ): ApiCall<FullResponse | null> => {
     return {
@@ -158,8 +160,8 @@ export const apiCalls = {
   },
 
   swap: (
-    pathA: number[],
-    pathB: number[],
+    pathA: LPath,
+    pathB: LPath,
     sessionToken: string | null
   ): ApiCall<FullResponse | null> => {
     return {
@@ -170,7 +172,7 @@ export const apiCalls = {
 
   render: (
     layout: Layout,
-    figsize: FigSize,
+    figsize: FigureSize,
     sessionToken: string | null
   ): ApiCall<FullResponse | null> => {
     return {

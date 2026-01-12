@@ -29,7 +29,6 @@ from mpl_grid_configurator.backend.types import (  # noqa: TC001
     ReplaceRequest,
     ResizeRequest,
     RestructureRequest,
-    SVGResponse,
     UnmergeRequest,
 )
 from mpl_grid_configurator.figure_editor import FigureEditor
@@ -96,7 +95,7 @@ class MainApi:
         return await wrapped(callback, "rendering")
 
     @staticmethod
-    async def session(layout_request: LayoutRequest) -> SVGResponse:
+    async def session(layout_request: LayoutRequest) -> FullResponse:
         """Create a session and render the layout."""
         session_id = str(uuid.uuid4())
         token = create_session_token(session_id)

@@ -3,9 +3,11 @@ import { toast } from "sonner";
 import { FullResponse } from "../lib/api";
 import {
   Layout,
-  FigSize,
-  Orientation,
+  LPath,
+  FigureSize,
+  Orient,
   RestructuredLayout,
+  Ratios,
 } from "../lib/layout";
 import { History } from "./history";
 import { apiCalls } from "./apiCalls";
@@ -18,21 +20,21 @@ interface UseLayoutActionsProps {
 }
 
 export interface LayoutActions {
-  delete: (path: number[]) => Promise<void>;
-  merge: (pA: string, pB: string) => Promise<void>;
+  delete: (path: LPath) => Promise<void>;
+  merge: (pAId: string, pBId: string) => Promise<void>;
   insert: (
-    path: number[],
-    orient: Orientation,
-    ratios: number[],
+    path: LPath,
+    orient: Orient,
+    ratios: Ratios,
     value: string
   ) => Promise<void>;
-  replace: (path: number[], value: string) => Promise<void>;
-  rotate: (path: number[]) => Promise<void>;
-  resize: (targetSize: FigSize) => Promise<void>;
+  replace: (path: LPath, value: string) => Promise<void>;
+  rotate: (path: LPath) => Promise<void>;
+  resize: (targetSize: FigureSize) => Promise<void>;
   restructure: (resizedLayout: RestructuredLayout) => void;
-  split: (path: number[], orient: Orientation) => Promise<void>;
+  split: (path: LPath, orient: Orient) => Promise<void>;
   swap: (pA: string, pB: string) => Promise<void>;
-  reset: (l: Layout, fs: FigSize, msg?: string) => Promise<void>;
+  reset: (l: Layout, fs: FigureSize, msg?: string) => Promise<void>;
 }
 
 export const useLayoutActions = ({
@@ -53,17 +55,17 @@ export const useLayoutActions = ({
   );
 
   return {
-    delete: async (path: number[]) => {
+    delete: async (path: LPath) => {
       const res = await history.executeAction("DELETE", (l, f) =>
         apiCalls.delete(l, path, sessionToken)
       );
       res && syncUI(res, "Deleted successfully");
     },
 
-    merge: async (pA: string, pB: string) => {
-      if (pA === pB) return;
-      const pathA = pA.split("-").slice(1).map(Number);
-      const pathB = pB.split("-").slice(1).map(Number);
+    merge: async (pAId: string, pBId: string) => {
+      if (pAId === pBId) return;
+      const pathA = pAId.split("-").slice(1).map(Number) as LPath;
+      const pathB = pBId.split("-").slice(1).map(Number) as LPath;
       const res = await history.executeAction("MERGE", (l, f) =>
         apiCalls.merge(pathA, pathB, sessionToken)
       );
@@ -71,9 +73,9 @@ export const useLayoutActions = ({
     },
 
     insert: async (
-      path: number[],
-      orient: Orientation,
-      ratios: number[],
+      path: LPath,
+      orient: Orient,
+      ratios: Ratios,
       value: string
     ) => {
       const res = await history.executeAction("INSERT", (l, f) =>
@@ -82,14 +84,14 @@ export const useLayoutActions = ({
       res && syncUI(res, "Inserted successfully");
     },
 
-    replace: async (path: number[], value: string) => {
+    replace: async (path: LPath, value: string) => {
       const res = await history.executeAction("REPLACE", (l, f) =>
         apiCalls.replace(l, path, value, sessionToken)
       );
       res && syncUI(res, "Replaced successfully");
     },
 
-    resize: async (targetSize: FigSize) => {
+    resize: async (targetSize: FigureSize) => {
       const res = await history.executeAction("RESIZE", (l, f) =>
         apiCalls.resize(f, targetSize, sessionToken)
       );
@@ -100,14 +102,14 @@ export const useLayoutActions = ({
       restructureCallback(restructuredLayout);
     },
 
-    rotate: async (path: number[]) => {
+    rotate: async (path: LPath) => {
       const res = await history.executeAction("ROTATE", (l, f) =>
         apiCalls.rotate(path, sessionToken)
       );
       res && syncUI(res, "Rotated successfully");
     },
 
-    split: async (path: number[], orient: Orientation) => {
+    split: async (path: LPath, orient: Orient) => {
       const res = await history.executeAction("SPLIT", (l, f) =>
         apiCalls.split(path, orient, sessionToken)
       );
@@ -124,7 +126,7 @@ export const useLayoutActions = ({
       res && syncUI(res, "Swapped successfully");
     },
 
-    reset: async (layout: Layout, figsize: FigSize, msg?: string) => {
+    reset: async (layout: Layout, figsize: FigureSize, msg?: string) => {
       const res = await history.executeAction("RESET", (l, f) =>
         apiCalls.render(layout, figsize, sessionToken)
       );

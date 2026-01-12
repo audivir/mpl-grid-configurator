@@ -3,7 +3,7 @@
 # Pydantic: Please use `typing_extensions.TypedDict` instead of `typing.TypedDict` on Python < 3.12.
 from typing_extensions import TypedDict
 
-from mpl_grid_configurator.types import Change, Layout, Orientation
+from mpl_grid_configurator.types import Change, FigureSize, Layout, LPath, Orient, Ratios
 
 ### Request types ###
 
@@ -11,54 +11,54 @@ from mpl_grid_configurator.types import Change, Layout, Orientation
 class LayoutRequest(TypedDict):
     """Layout and figure size."""
 
-    figsize: tuple[float, float]
+    figsize: FigureSize
     layout: Layout
 
 
 class PathRequest(TypedDict):
     """Path."""
 
-    path: tuple[int, ...]
+    path: LPath
 
 
 class PathsRequest(TypedDict):
     """Two paths."""
 
-    pathA: tuple[int, ...]
-    pathB: tuple[int, ...]
+    pathA: LPath
+    pathB: LPath
 
 
 class PathOrientRequest(PathRequest):
     """Path and orientation."""
 
-    orient: Orientation
+    orient: Orient
 
 
 class ResizeRequest(TypedDict):
     """Figsize."""
 
-    figsize: tuple[float, float]
+    figsize: FigureSize
 
 
 class RestructureRequest(TypedDict):
     """Resize info for rows and columns."""
 
-    rowRestructureInfo: tuple[tuple[int, ...], tuple[float, float]] | None
-    columnRestructureInfo: tuple[tuple[int, ...], tuple[float, float]] | None
+    rowRestructureInfo: tuple[LPath, Ratios] | None
+    columnRestructureInfo: tuple[LPath, Ratios] | None
 
 
 class ReplaceRequest(TypedDict):
     """Path and value."""
 
-    path: tuple[int, ...]
+    path: LPath
     value: str
 
 
 class InsertRequest(ReplaceRequest):
     """Path, orientation, ratios, and value."""
 
-    orient: Orientation
-    ratios: tuple[float, float]
+    orient: Orient
+    ratios: Ratios
 
 
 class UnmergeRequest(TypedDict):
@@ -70,29 +70,12 @@ class UnmergeRequest(TypedDict):
 ### Response types ###
 
 
-class TokenResponse(TypedDict):
-    """Token response."""
-
-    token: str
-
-
-class SVGResponse(TokenResponse):
-    """SVG and token."""
-
-    svg: str
-
-
-class LayoutResponse(TokenResponse):
-    """Layout and token."""
-
-    layout: Layout
-
-
-class FullResponse(TokenResponse):
+class FullResponse(TypedDict):
     """Response containing layout, figsize, svg, and token."""
 
+    token: str
     svg: str
-    figsize: tuple[float, float]
+    figsize: FigureSize
     layout: Layout
 
 

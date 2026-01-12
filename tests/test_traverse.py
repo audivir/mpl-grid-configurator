@@ -26,7 +26,7 @@ from mpl_grid_configurator.traverse import (
 )
 
 if TYPE_CHECKING:
-    from mpl_grid_configurator.types import Layout, LayoutNode, SubFigure_
+    from mpl_grid_configurator.types import Layout, LayoutNode, LPath, SubFigure_
 
 
 @pytest.fixture(
@@ -38,12 +38,12 @@ if TYPE_CHECKING:
 )
 def lca_request(
     request: pytest.FixtureRequest,
-) -> tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...]]:
+) -> tuple[LPath, LPath, LPath]:
     """Existing paths in the `simple_root` fixture."""
     return request.param
 
 
-def get_nested_subfigures() -> tuple[SubFigure_, dict[tuple[int, ...], SubFigure_]]:
+def get_nested_subfigures() -> tuple[SubFigure_, dict[LPath, SubFigure_]]:
     _, root = new_root()
     s0, s1 = split_figure(root, "column", (50, 50))
     s00, s01 = split_figure(s0, "row", (50, 50))
@@ -56,7 +56,7 @@ def get_nested_subfigures() -> tuple[SubFigure_, dict[tuple[int, ...], SubFigure
 
 
 @pytest.fixture
-def nested_subfigures() -> tuple[SubFigure_, dict[tuple[int, ...], SubFigure_]]:
+def nested_subfigures() -> tuple[SubFigure_, dict[LPath, SubFigure_]]:
     """Create a figure with a nested subfigures layout.
 
     Represents:
@@ -75,15 +75,13 @@ def test_almost_equal() -> None:
 
 
 @pytest.mark.parametrize("path", [(0,), (0, 0), (0, 1), (1,)])
-def test_get_subfig(
-    path: tuple[int, ...], nested_subfigures: tuple[Figure, dict[tuple[int, ...], SubFigure]]
-) -> None:
+def test_get_subfig(path: LPath, nested_subfigures: tuple[Figure, dict[LPath, SubFigure]]) -> None:
     fig, subfigures_mapping = nested_subfigures
     assert get_subfig(fig, path) == subfigures_mapping[path]  # type: ignore[arg-type]
 
 
 def test_get_subfig_fail(
-    nested_subfigures: tuple[SubFigure_, dict[tuple[int, ...], SubFigure_]],
+    nested_subfigures: tuple[SubFigure_, dict[LPath, SubFigure_]],
 ) -> None:
     fig, _ = nested_subfigures
     with pytest.raises(TraversalError, match="Root figure is not a subfigure"):
@@ -95,7 +93,7 @@ def test_get_subfig_fail(
 
 
 @pytest.fixture
-def node_paths() -> list[tuple[int, ...]]:
+def node_paths() -> list[LPath]:
     return [
         (),
         (0,),
@@ -106,7 +104,7 @@ def node_paths() -> list[tuple[int, ...]]:
 
 
 @pytest.fixture
-def leaf_paths() -> list[tuple[int, ...]]:
+def leaf_paths() -> list[LPath]:
     return [
         (0, 0),
         (0, 1, 0),
@@ -119,7 +117,7 @@ def leaf_paths() -> list[tuple[int, ...]]:
 
 def test_get_at_node(
     simple_root: LayoutNode,
-    simple_root_node_item: tuple[tuple[int, ...], LayoutNode],
+    simple_root_node_item: tuple[LPath, LayoutNode],
 ) -> None:
     path, node = simple_root_node_item
     assert get_at(simple_root, path) == node
@@ -127,7 +125,7 @@ def test_get_at_node(
 
 def test_get_at_leaf(
     simple_root: LayoutNode,
-    simple_root_leaf_item: tuple[tuple[int, ...], str],
+    simple_root_leaf_item: tuple[LPath, str],
 ) -> None:
     path, leaf = simple_root_leaf_item
     assert get_at(simple_root, path) == leaf
@@ -146,30 +144,24 @@ def test_get_at_fail(simple_root: LayoutNode) -> None:
         get_at("root", (1,))
 
 
-def test_get_node(
-    simple_root: LayoutNode, simple_root_node_item: tuple[tuple[int, ...], LayoutNode]
-) -> None:
+def test_get_node(simple_root: LayoutNode, simple_root_node_item: tuple[LPath, LayoutNode]) -> None:
     path, node = simple_root_node_item
     assert get_node(simple_root, path) == node
 
 
-def test_get_node_fail(
-    simple_root: LayoutNode, simple_root_leaf_item: tuple[tuple[int, ...], str]
-) -> None:
+def test_get_node_fail(simple_root: LayoutNode, simple_root_leaf_item: tuple[LPath, str]) -> None:
     path, _ = simple_root_leaf_item
     with pytest.raises(TraversalError, match="Path leads to a leaf"):
         get_node(simple_root, path)
 
 
-def test_get_leaf(
-    simple_root: LayoutNode, simple_root_leaf_item: tuple[tuple[int, ...], str]
-) -> None:
+def test_get_leaf(simple_root: LayoutNode, simple_root_leaf_item: tuple[LPath, str]) -> None:
     path, leaf = simple_root_leaf_item
     assert get_leaf(simple_root, path) == leaf
 
 
 def test_get_leaf_fail(
-    simple_root: LayoutNode, simple_root_node_item: tuple[tuple[int, ...], LayoutNode]
+    simple_root: LayoutNode, simple_root_node_item: tuple[LPath, LayoutNode]
 ) -> None:
     path, _ = simple_root_node_item
     with pytest.raises(TraversalError, match="Path leads to a node"):
@@ -218,7 +210,7 @@ def test_set_node_root_fail() -> None:
 
 
 def test_get_lca_path(
-    lca_request: tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...]],
+    lca_request: tuple[LPath, LPath, LPath],
 ) -> None:
     path1, path2, expected = lca_request
     assert get_lca_path(path1, path2) == expected
@@ -229,9 +221,7 @@ def test_get_lca_path_fail() -> None:
         get_lca_path((0, 1, 2), (0, 1, 3))
 
 
-def test_get_lca(
-    simple_root: LayoutNode, lca_request: tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...]]
-) -> None:
+def test_get_lca(simple_root: LayoutNode, lca_request: tuple[LPath, LPath, LPath]) -> None:
     path1, path2, expected = lca_request
     elem1 = get_at(simple_root, path1)
     elem2 = get_at(simple_root, path2)
@@ -241,19 +231,19 @@ def test_get_lca(
     assert get_at(lca, adj_path2) == elem2
 
 
-def test_assert_node_node(simple_root_node_item: tuple[tuple[int, ...], LayoutNode]) -> None:
+def test_assert_node_node(simple_root_node_item: tuple[LPath, LayoutNode]) -> None:
     _, node = simple_root_node_item
     assert assert_node(node) == node
 
 
-def test_assert_node_leaf(simple_root_leaf_item: tuple[tuple[int, ...], str]) -> None:
+def test_assert_node_leaf(simple_root_leaf_item: tuple[LPath, str]) -> None:
     _, leaf = simple_root_leaf_item
     with pytest.raises(ValueError, match="Layout must be a node"):
         assert_node(leaf)
 
 
 def test_is_root(
-    nested_subfigures: tuple[SubFigure_, dict[tuple[int, ...], SubFigure_]],
+    nested_subfigures: tuple[SubFigure_, dict[LPath, SubFigure_]],
 ) -> None:
     fig, _ = nested_subfigures
     assert is_root(fig)
@@ -265,7 +255,7 @@ def test_is_root_false(sf: SubFigure_) -> None:
 
 
 def test_assert_root(
-    nested_subfigures: tuple[SubFigure_, dict[tuple[int, ...], SubFigure_]],
+    nested_subfigures: tuple[SubFigure_, dict[LPath, SubFigure_]],
 ) -> None:
     fig, _ = nested_subfigures
     root = assert_root(fig)

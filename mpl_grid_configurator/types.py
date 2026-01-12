@@ -54,26 +54,28 @@ StrDrawFunc: TypeAlias = Callable[[], str]
 DrawFunc: TypeAlias = "AxesDrawFunc | TupleDrawFunc | StrDrawFunc"
 DrawFuncT = TypeVar("DrawFuncT", bound=DrawFunc)
 
-Orientation: TypeAlias = Literal["row", "column"]
+Orient: TypeAlias = Literal["row", "column"]
+LPath: TypeAlias = tuple[int, ...]
+FigureSize: TypeAlias = tuple[float, float]
+Ratios: TypeAlias = tuple[float, float]
 
 
 class LayoutNode(TypedDict):
     """Node for the JSON layout."""
 
-    orient: Orientation
+    orient: Orient
     children: tuple[LayoutNode | str, LayoutNode | str]
-    ratios: tuple[float, float]
+    ratios: Ratios
 
 
 Layout: TypeAlias = LayoutNode | str
 LayoutT = TypeVar("LayoutT", LayoutNode, str, Layout)
-
-FigTree: TypeAlias = "tuple[str, int, int, tuple[FigTree, ...]]"
+FigureTree: TypeAlias = "tuple[str, int, int, tuple[FigureTree, ...]]"
 
 ChangeKey: TypeAlias = Literal[
     "delete", "insert", "replace", "restructure", "rotate", "split", "swap"
 ]
-Change: TypeAlias = tuple[ChangeKey, tuple[int, ...], dict[str, Any]]
+Change: TypeAlias = tuple[ChangeKey, LPath, dict[str, Any]]
 
 
 @dataclass

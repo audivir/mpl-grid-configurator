@@ -1,6 +1,6 @@
 import { useReducer } from "react";
 import { FullResponse } from "../lib/api";
-import { Layout, FigSize } from "../lib/layout";
+import { Layout, FigureSize } from "../lib/layout";
 import { ApiCall } from "./apiCalls";
 
 export type HistoryActionType =
@@ -22,7 +22,7 @@ interface HistoryDelta {
 
 interface HistoryState {
   past: HistoryDelta[];
-  present: { layout: Layout; figsize: FigSize };
+  present: { layout: Layout; figsize: FigureSize };
   future: HistoryDelta[];
 }
 
@@ -32,11 +32,11 @@ type HistoryAction =
       actionType: HistoryActionType;
       call: ApiCall<FullResponse | null>;
       layout: Layout;
-      figsize: FigSize;
+      figsize: FigureSize;
     }
-  | { type: "UNDO"; layout: Layout; figsize: FigSize }
-  | { type: "REDO"; layout: Layout; figsize: FigSize }
-  | { type: "RESET"; layout: Layout; figsize: FigSize };
+  | { type: "UNDO"; layout: Layout; figsize: FigureSize }
+  | { type: "REDO"; layout: Layout; figsize: FigureSize }
+  | { type: "RESET"; layout: Layout; figsize: FigureSize };
 
 const historyReducer = (
   state: HistoryState,
@@ -80,16 +80,16 @@ const historyReducer = (
 
 interface UseHistoryProps {
   initialLayout: Layout;
-  initialFigsize: FigSize;
+  initialFigsize: FigureSize;
 }
 
 export type History = {
-  state: { layout: Layout; figsize: FigSize };
+  state: { layout: Layout; figsize: FigureSize };
   undo: () => Promise<FullResponse | null>;
   redo: () => Promise<FullResponse | null>;
   executeAction: (
     type: HistoryActionType,
-    apiCallBuilder: (l: Layout, f: FigSize) => ApiCall<FullResponse | null>
+    apiCallBuilder: (l: Layout, f: FigureSize) => ApiCall<FullResponse | null>
   ) => Promise<FullResponse | null>;
   canUndo: boolean;
   canRedo: boolean;
@@ -106,7 +106,7 @@ const useHistory = ({
   });
   const executeAction = async (
     type: HistoryActionType,
-    apiCallBuilder: (l: Layout, f: FigSize) => ApiCall<FullResponse | null>
+    apiCallBuilder: (l: Layout, f: FigureSize) => ApiCall<FullResponse | null>
   ) => {
     const apiCall = apiCallBuilder(state.present.layout, state.present.figsize);
     const res = await apiCall.do();

@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from mpl_grid_configurator.backend.types import FullResponse
-    from mpl_grid_configurator.types import Layout, SubFigure_
+    from mpl_grid_configurator.types import FigureSize, Layout, SubFigure_
 
 logger = logging.getLogger(__name__)
 dotenv.load_dotenv()
@@ -44,7 +44,7 @@ FIGURE_SESSIONS: dict[str, Session] = {}
 class SessionData(msgspec.Struct):
     """Session figure."""
 
-    figsize: tuple[float, float]
+    figsize: FigureSize
     layout: Layout
     fig: SubFigure_
     subfigs: dict[str, list[SubFigure_]]

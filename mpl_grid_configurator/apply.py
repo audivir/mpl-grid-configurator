@@ -14,7 +14,7 @@ from mpl_grid_configurator.traverse import assert_node, get_at, get_node
 if TYPE_CHECKING:
     from collections.abc import Callable, MutableMapping, Sequence
 
-    from mpl_grid_configurator.types import Change, DrawFunc, Layout, SubFigure_
+    from mpl_grid_configurator.types import Change, DrawFunc, Layout, LPath, SubFigure_
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +146,7 @@ def apply_to_figure(  # noqa: C901,PLR0912
 
 def rebuild(
     layout: Layout,
-    lca_path: tuple[int, ...],
+    lca_path: LPath,
     target_layout: Layout,
 ) -> tuple[Layout, list[Change], list[Change]]:
     """Rebuild the tree by removing the LCA and its children and then adding the new layout.
@@ -167,7 +167,7 @@ def rebuild(
         return layout
 
     def recursive_rebuild(
-        layout: Layout, elem: Layout, target_elem: Layout, curr_path: tuple[int, ...]
+        layout: Layout, elem: Layout, target_elem: Layout, curr_path: LPath
     ) -> Layout:
         if isinstance(elem, str):
             if isinstance(target_elem, str):

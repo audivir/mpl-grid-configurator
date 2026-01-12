@@ -4,10 +4,12 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from mpl_grid_configurator.render import DEFAULT_LEAF
+
 if TYPE_CHECKING:
     from utils import ChangeFixture
 
-    from mpl_grid_configurator.types import Layout, LayoutNode, Orientation
+    from mpl_grid_configurator.types import Layout, LayoutNode, LPath, Orient, Ratios
 
 
 @pytest.fixture
@@ -19,7 +21,7 @@ def delete_to_unsplitted_root() -> ChangeFixture:
     return pre, post, ("delete", path, {}), "f1l"
 
 
-def _get_delete_to_splitted_root(post: Layout, path: tuple[int, ...]) -> ChangeFixture:
+def _get_delete_to_splitted_root(post: Layout, path: LPath) -> ChangeFixture:
     pre: Layout = {
         "orient": "row",
         "children": ("f1l", {"orient": "row", "children": ("f2l", "f3l"), "ratios": (70, 30)}),
@@ -92,9 +94,9 @@ def rotate() -> ChangeFixture:
 @pytest.fixture
 def split_root() -> ChangeFixture:
     pre: Layout = "f1l"
-    post: Layout = {"orient": "row", "children": ("f1l", "draw_empty"), "ratios": (50, 50)}
+    post: Layout = {"orient": "row", "children": ("f1l", DEFAULT_LEAF), "ratios": (50, 50)}
 
-    orient: Orientation = "row"
+    orient: Orient = "row"
     path = ()
     return pre, post, ("split", path, {"orient": orient}), None
 
@@ -105,13 +107,13 @@ def split_leaf() -> ChangeFixture:
     post: Layout = {
         "orient": "row",
         "children": (
-            {"orient": "row", "children": ("f1l", "draw_empty"), "ratios": (50, 50)},
+            {"orient": "row", "children": ("f1l", DEFAULT_LEAF), "ratios": (50, 50)},
             "f2l",
         ),
         "ratios": (40, 60),
     }
 
-    orient: Orientation = "row"
+    orient: Orient = "row"
     path = (0,)
     return pre, post, ("split", path, {"orient": orient}), None
 
@@ -133,7 +135,7 @@ def split_node() -> ChangeFixture:
                 "orient": "row",
                 "children": (
                     {"orient": "row", "children": ("f1l", "f2l"), "ratios": (40, 60)},
-                    "draw_empty",
+                    DEFAULT_LEAF,
                 ),
                 "ratios": (50, 50),
             },
@@ -142,7 +144,7 @@ def split_node() -> ChangeFixture:
         "ratios": (30, 70),
     }
 
-    orient: Orientation = "row"
+    orient: Orient = "row"
     path = (0,)
     return pre, post, ("split", path, {"orient": orient}), None
 
@@ -240,15 +242,15 @@ def insert() -> ChangeFixture:
         "ratios": (70, 30),
     }
 
-    path: tuple[int, ...] = (1,)
-    orient: Orientation = "row"
-    ratios = (70, 30)
+    path: LPath = (1,)
+    orient: Orient = "row"
+    ratios: Ratios = (70, 30)
     value = "f2l"
     return (
         pre,
         post,
         ("insert", path, {"orient": orient, "ratios": ratios, "value": value}),
-        "draw_empty",
+        DEFAULT_LEAF,
     )
 
 
@@ -272,15 +274,15 @@ def insert_next_to_node() -> ChangeFixture:
         "ratios": (60, 40),
     }
 
-    path: tuple[int, ...] = (1,)
-    orient: Orientation = "row"
+    path: LPath = (1,)
+    orient: Orient = "row"
     ratios = (60, 40)
     value = "f3l"
     return (
         pre,
         post,
         ("insert", path, {"orient": orient, "ratios": ratios, "value": value}),
-        "draw_empty",
+        DEFAULT_LEAF,
     )
 
 
@@ -298,13 +300,13 @@ def insert_node() -> ChangeFixture:
         "ratios": (70, 30),
     }
 
-    path: tuple[int, ...] = (1,)
-    orient: Orientation = "row"
+    path: LPath = (1,)
+    orient: Orient = "row"
     ratios = (70, 30)
     value = new_node
     return (
         pre,
         post,
         ("insert", path, {"orient": orient, "ratios": ratios, "value": value}),
-        "draw_empty",
+        DEFAULT_LEAF,
     )
