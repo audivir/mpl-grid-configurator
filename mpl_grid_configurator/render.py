@@ -155,7 +155,6 @@ def render_layout(
 def render_svg(root: Figure_ | SubFigure_, svg_callback: Callable[[str], str]) -> str:
     """Save a figure to svg, apply a callback and return the svg."""
     buf = io.BytesIO()
-    root.patch.set_visible(False)
     savefig(root, buf, format="svg")
     final_svg = buf.getvalue().decode("utf-8")
     return svg_callback(final_svg)

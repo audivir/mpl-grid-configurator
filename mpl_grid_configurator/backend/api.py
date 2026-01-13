@@ -6,11 +6,12 @@ import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from copy import deepcopy
-from typing import Annotated, TypeVar
+from typing import Annotated, ParamSpec, TypeVar
 
 from fastapi import Depends, FastAPI, HTTPException
 
 from mpl_grid_configurator.apply import get_drawer, wrap_svg_callback
+from mpl_grid_configurator.backend.profiler import SessionProfiler
 from mpl_grid_configurator.backend.sessions import (
     FIGURE_SESSIONS,
     Session,
@@ -39,6 +40,7 @@ from mpl_grid_configurator.render import render_layout
 from mpl_grid_configurator.traverse import are_nodes_equal
 from mpl_grid_configurator.types import Config  # noqa: TC001
 
+P = ParamSpec("P")
 R = TypeVar("R")
 logger = logging.getLogger()
 
@@ -71,6 +73,8 @@ class MainApi:
         config_request: Config, session: Annotated[Session, Depends(get_session)]
     ) -> FullResponse:
         """Render a layout."""
+        prof = SessionProfiler("render")
+
         layout, figsize = config_request["layout"], config_request["figsize"]
 
         d = session.data
@@ -78,10 +82,11 @@ class MainApi:
             logger.warning("Session already has data, fast-tracking")
 
             if figsize == d.figsize and are_nodes_equal(d.layout, layout):
-                return await wrapped(session.response, "rendering without changes")
+                return await wrapped(session.response, "rendering without changes", prof)
 
         def callback() -> FullResponse:
-            fig, svg_callback = render_layout(layout, figsize, DRAW_FUNCS)
+            with prof.track("render_layout"):
+                fig, svg_callback = render_layout(layout, figsize, DRAW_FUNCS)
 
             session.data = SessionData(
                 layout=layout,
@@ -90,9 +95,14 @@ class MainApi:
                 subfigs={},
                 svg_callback=svg_callback,
             )
-            return session.response()
 
-        return await wrapped(callback, "rendering")
+            with prof.track("render_svg"):
+                response = session.response()
+
+            prof.finalize()
+            return response
+
+        return await wrapped(callback, "rendering", prof=None)
 
     @staticmethod
     async def session(config_request: Config) -> FullResponse:
@@ -127,17 +137,22 @@ class EditApi:
         path_request: PathRequest, session: Annotated[Session, Depends(get_session)]
     ) -> FullResponse:
         """Delete a leaf."""
+        prof = SessionProfiler("delete")
+
         d = session.fdata
         path = path_request["path"]
 
-        layout, _, removed = LayoutEditor.delete(deepcopy(d.layout), path)
-        if not isinstance(removed, str):
-            raise HTTPException(status_code=400, detail="Cannot delete nodes via API")
-        d.layout = layout
-        d.fig, removed_sf = FigureEditor.delete(d.fig, path)  # mutates fig
-        d.subfigs.setdefault(removed, []).append(removed_sf)
+        with prof.track("edit_layout"):
+            layout, _, removed = LayoutEditor.delete(deepcopy(d.layout), path)
+            if not isinstance(removed, str):
+                raise HTTPException(status_code=400, detail="Cannot delete nodes via API")
+            d.layout = layout
 
-        return await wrapped(session.response, "deleting")
+        with prof.track("edit_figure"):
+            d.fig, removed_sf = FigureEditor.delete(d.fig, path)  # mutates fig
+            d.subfigs.setdefault(removed, []).append(removed_sf)
+
+        return await wrapped(session.response, "deleting", prof)
 
     @staticmethod
     async def insert(
@@ -145,20 +160,24 @@ class EditApi:
         session: Annotated[Session, Depends(get_session)],
     ) -> FullResponse:
         """Insert a new leaf."""
+        prof = SessionProfiler("insert")
+
         d = session.fdata
         path, value = insert_request["path"], insert_request["value"]
         orient, ratios = insert_request["orient"], insert_request["ratios"]
 
-        d.layout, _, removed = LayoutEditor.insert(d.layout, path, orient, ratios, value)
+        with prof.track("edit_layout"):
+            d.layout, _, removed = LayoutEditor.insert(d.layout, path, orient, ratios, value)
 
-        drawer = get_drawer(d.subfigs, value)
-        d.fig, removed_sf, svg_callback = FigureEditor.insert(
-            d.fig, path, orient, ratios, value, drawer
-        )
+        with prof.track("edit_figure"):
+            drawer = get_drawer(d.subfigs, value)
+            d.fig, removed_sf, svg_callback = FigureEditor.insert(
+                d.fig, path, orient, ratios, value, drawer
+            )
+            d.subfigs.setdefault(removed, []).append(removed_sf)
+            d.svg_callback = wrap_svg_callback(d.svg_callback, svg_callback)
 
-        d.subfigs.setdefault(removed, []).append(removed_sf)
-        d.svg_callback = wrap_svg_callback(d.svg_callback, svg_callback)
-        return await wrapped(session.response, "inserting")
+        return await wrapped(session.response, "inserting", prof)
 
     @staticmethod
     async def merge(
@@ -166,15 +185,18 @@ class EditApi:
         session: Annotated[Session, Depends(get_session)],
     ) -> MergeResponse:
         """Merge two paths."""
+        prof = SessionProfiler("merge")
+
         d = session.fdata
         path1, path2 = paths_request["pathA"], paths_request["pathB"]
 
-        try:
-            d.layout, d.fig, inverse, d.svg_callback = merge(
-                d.layout, d.fig, path1, path2, d.subfigs, d.svg_callback
-            )
-        except MergeError as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
+        with prof.track("merge"):
+            try:
+                d.layout, d.fig, inverse, d.svg_callback = merge(
+                    d.layout, d.fig, path1, path2, d.subfigs, d.svg_callback
+                )
+            except MergeError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
 
         def merge_callback() -> MergeResponse:
             svg_response = session.response()
@@ -183,106 +205,162 @@ class EditApi:
                 "inverse": inverse,
             }
 
-        return await wrapped(merge_callback, "merging")
+        return await wrapped(merge_callback, "merging", prof)
 
     @staticmethod
     async def replace(
         replace_request: ReplaceRequest, session: Annotated[Session, Depends(get_session)]
     ) -> FullResponse:
         """Replace a node."""
+        prof = SessionProfiler("replace")
+
         d = session.fdata
         path, value = replace_request["path"], replace_request["value"]
 
-        layout, _, removed = LayoutEditor.replace(deepcopy(d.layout), path, value)
-        if not isinstance(removed, str):
-            raise HTTPException(status_code=400, detail="Cannot replace nodes via API")
+        with prof.track("replace_layout"):
+            layout, _, removed = LayoutEditor.replace(deepcopy(d.layout), path, value)
+            if not isinstance(removed, str):
+                raise HTTPException(status_code=400, detail="Cannot replace nodes via API")
+            d.layout = layout
 
-        d.layout = layout
+        with prof.track("replace_figure"):
+            drawer = get_drawer(d.subfigs, value)
+            d.fig, removed_sf, svg_callback = FigureEditor.replace(d.fig, path, value, drawer)
+            d.subfigs.setdefault(removed, []).append(removed_sf)
+            d.svg_callback = wrap_svg_callback(d.svg_callback, svg_callback)
 
-        drawer = get_drawer(d.subfigs, value)
-        d.fig, removed_sf, svg_callback = FigureEditor.replace(d.fig, path, value, drawer)
-
-        d.subfigs.setdefault(removed, []).append(removed_sf)
-        d.svg_callback = wrap_svg_callback(d.svg_callback, svg_callback)
-
-        return await wrapped(session.response, "replacing")
+        return await wrapped(session.response, "replacing", prof)
 
     @staticmethod
     async def resize(
         resize_request: ResizeRequest, session: Annotated[Session, Depends(get_session)]
     ) -> FullResponse:
         """Resize a node."""
+        prof = SessionProfiler("resize")
+
         d = session.fdata
         d.figsize = resize_request["figsize"]
-        FigureEditor.resize(d.fig, d.figsize)
-        return await wrapped(session.response, "resizing")
+
+        with prof.track("edit_figure"):
+            FigureEditor.resize(d.fig, d.figsize)
+
+        return await wrapped(session.response, "resizing", prof)
 
     @staticmethod
     async def restructure(
         restructure_request: RestructureRequest, session: Annotated[Session, Depends(get_session)]
     ) -> FullResponse:
         """Resize a node."""
+        prof = SessionProfiler("restructure")
+
         d = session.fdata
+
         if restructure_info := restructure_request["rowRestructureInfo"]:
-            d.layout, _ = LayoutEditor.restructure(d.layout, *restructure_info)
-            FigureEditor.restructure(d.fig, *restructure_info)
+            with prof.track("edit_layout_row"):
+                d.layout, _ = LayoutEditor.restructure(d.layout, *restructure_info)
+            with prof.track("edit_figure_row"):
+                FigureEditor.restructure(d.fig, *restructure_info)
         if restructure_info := restructure_request["columnRestructureInfo"]:
-            d.layout, _ = LayoutEditor.restructure(d.layout, *restructure_info)
-            FigureEditor.restructure(d.fig, *restructure_info)
-        return await wrapped(session.response, "restructuring")
+            with prof.track("edit_layout_column"):
+                d.layout, _ = LayoutEditor.restructure(d.layout, *restructure_info)
+            with prof.track("edit_figure_column"):
+                FigureEditor.restructure(d.fig, *restructure_info)
+
+        return await wrapped(session.response, "restructuring", prof)
 
     @staticmethod
     async def rotate(
         path_request: PathRequest, session: Annotated[Session, Depends(get_session)]
     ) -> FullResponse:
         """Rotate a parent."""
+        prof = SessionProfiler("rotate")
+
         path = path_request["path"]
         d = session.fdata
-        d.layout, _ = LayoutEditor.rotate(d.layout, path)
-        FigureEditor.rotate(d.fig, path)
-        return await wrapped(session.response, "rotating")
+
+        with prof.track("edit_layout"):
+            d.layout, _ = LayoutEditor.rotate(d.layout, path)
+
+        with prof.track("edit_figure"):
+            FigureEditor.rotate(d.fig, path)
+
+        return await wrapped(session.response, "rotating", prof)
 
     @staticmethod
     async def split(
         path_orient_request: PathOrientRequest, session: Annotated[Session, Depends(get_session)]
     ) -> FullResponse:
         """Split a node."""
+        prof = SessionProfiler("split")
+
         path, orient = path_orient_request["path"], path_orient_request["orient"]
         d = session.fdata
-        d.layout, _ = LayoutEditor.split(d.layout, path, orient)
-        d.fig = FigureEditor.split(d.fig, path, orient)
-        return await wrapped(session.response, "splitting")
+
+        with prof.track("edit_layout"):
+            d.layout, _ = LayoutEditor.split(d.layout, path, orient)
+
+        with prof.track("edit_figure"):
+            d.fig = FigureEditor.split(d.fig, path, orient)
+
+        return await wrapped(session.response, "splitting", prof)
 
     @staticmethod
     async def swap(
         paths_request: PathsRequest, session: Annotated[Session, Depends(get_session)]
     ) -> FullResponse:
         """Swap two leaves."""
+        prof = SessionProfiler("swap")
+
         path1, path2 = paths_request["pathA"], paths_request["pathB"]
         d = session.fdata
-        d.layout, _ = LayoutEditor.swap(d.layout, path1, path2)
-        FigureEditor.swap(d.fig, path1, path2)
-        return await wrapped(session.response, "swapping")
+
+        with prof.track("edit_layout"):
+            d.layout, _ = LayoutEditor.swap(d.layout, path1, path2)
+
+        with prof.track("edit_figure"):
+            FigureEditor.swap(d.fig, path1, path2)
+
+        return await wrapped(session.response, "swapping", prof)
 
     @staticmethod
     async def unmerge(
         unmerge_request: UnmergeRequest, session: Annotated[Session, Depends(get_session)]
     ) -> FullResponse:
         """Unmerge two paths."""
+        prof = SessionProfiler("unmerge")
+
         inverse = unmerge_request["inverse"]
         d = session.fdata
-        d.layout, d.fig, d.svg_callback = unmerge(
-            d.layout, d.fig, inverse, d.subfigs, d.svg_callback
-        )
-        return await wrapped(session.response, "unmerging")
+
+        with prof.track("unmerge"):
+            d.layout, d.fig, d.svg_callback = unmerge(
+                d.layout, d.fig, inverse, d.subfigs, d.svg_callback
+            )
+
+        return await wrapped(session.response, "unmerging", prof)
 
 
-async def wrapped(func: Callable[..., R] | Callable[[], Awaitable[R]], name: str) -> R:
+async def wrapped(
+    func: Callable[..., R] | Callable[[], Awaitable[R]],
+    name: str,
+    prof: SessionProfiler | None,
+) -> R:
     """Wrap a function to catch exceptions."""
-    try:
+
+    async def run_func() -> R:
         result = func()
         if isinstance(result, Awaitable):
             return await result
+        return result
+
+    try:
+        if prof:
+            with prof.track("render_svg"):
+                result = await run_func()
+            prof.finalize()
+        else:
+            result = await run_func()
+
     except Exception as e:
         logger.exception("Unexpected error during %s", name)
         raise HTTPException(status_code=500, detail=str(e)) from e

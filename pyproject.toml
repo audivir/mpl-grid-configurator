@@ -23,6 +23,9 @@ dependencies = [
     "uvicorn",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest", "msgspec", "json-comments"]
+
 [project.urls]
 Homepage = "https://github.com/audivir/mpl-grid-configurator"
 Repository = "https://github.com/audivir/mpl-grid-configurator"

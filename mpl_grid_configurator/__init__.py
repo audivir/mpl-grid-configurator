@@ -10,7 +10,7 @@ from mpl_grid_configurator.types import Layout, LayoutNode
 
 mpl.use("Agg")
 
-__version__ = "0.4.6"
+__version__ = "0.4.7"
 
 __all__ = [
     "Layout",
