@@ -79,7 +79,7 @@ class MainApi:
 
         d = session.data
         if d:
-            logger.warning("Session already has data, fast-tracking")
+            logger.info("Session already has data, fast-tracking")
 
             if figsize == d.figsize and are_nodes_equal(d.layout, layout):
                 return await wrapped(session.response, "rendering without changes", prof)

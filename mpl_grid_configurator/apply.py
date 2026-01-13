@@ -34,7 +34,7 @@ def wrap_svg_callback(
 def get_drawer(subfigs: MutableMapping[str, list[SubFigure_]], value: str) -> DrawFunc | SubFigure_:
     """Get a cached drawer or create a new one from the registry."""
     cache = subfigs.get(value, [])
-    logger.warning("Cache size for %s: %d", value, len(cache))
+    logger.debug("Cache size for %s: %d", value, len(cache))
     if not cache:
         return DRAW_FUNCS[value]
     return cache.pop()

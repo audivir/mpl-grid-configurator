@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import TypeVar
 
@@ -18,7 +19,7 @@ dotenv.load_dotenv()
 logger = logging.getLogger(__name__)
 
 root_logger = logging.getLogger()
-root_logger.setLevel(logging.INFO)
+root_logger.setLevel(logging.DEBUG if bool(os.getenv("DEBUG")) else logging.INFO)
 handler = colorlog.StreamHandler()
 handler.setFormatter(colorlog.ColoredFormatter("%(log_color)s%(message)s"))
 root_logger.addHandler(handler)

@@ -167,7 +167,7 @@ class LayoutEditor:
             raise ValueError("Cannot swap root")  # noqa: TRY004
         backward: Change = "swap", path1, {"path2": path2}
         if path1 == path2:
-            logger.warning("Swapping a node with itself, nothing to do")
+            logger.debug("Swapping a node with itself, nothing to do")
             return layout, backward
         elem1 = get_at(layout, path1)
         elem2 = get_at(layout, path2)

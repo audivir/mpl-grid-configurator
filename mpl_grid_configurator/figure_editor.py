@@ -96,7 +96,7 @@ class FigureEditor:
 
         # create the replacement
         if callable(drawer):
-            logger.warning("Draw func needs to be run: %s", drawer.__name__)
+            logger.debug("Draw func needs to be run: %s", drawer.__name__)
             # creating fresh SubFigure in the same relative position
             # using existing subplotspec ensures it fits the same grid slot
             new_sf: SubFigure_ = SubFigure(parent, sf._subplotspec)  # type: ignore[assignment]
@@ -208,7 +208,7 @@ class FigureEditor:
         sf2 = get_subfig(root, path2)
 
         if sf1 is sf2:
-            logger.warning("Subfigures are the same, nothing to do")
+            logger.debug("Subfigures are the same, nothing to do")
             return
 
         p1, p2 = sf1._parent, sf2._parent
