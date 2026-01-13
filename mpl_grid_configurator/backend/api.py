@@ -21,7 +21,6 @@ from mpl_grid_configurator.backend.sessions import (
 from mpl_grid_configurator.backend.types import (  # noqa: TC001
     FullResponse,
     InsertRequest,
-    LayoutRequest,
     MergeResponse,
     PathOrientRequest,
     PathRequest,
@@ -38,6 +37,7 @@ from mpl_grid_configurator.merge_editor import merge, unmerge
 from mpl_grid_configurator.register import DRAW_FUNCS
 from mpl_grid_configurator.render import render_layout
 from mpl_grid_configurator.traverse import are_nodes_equal
+from mpl_grid_configurator.types import Config  # noqa: TC001
 
 R = TypeVar("R")
 logger = logging.getLogger()
@@ -68,10 +68,10 @@ class MainApi:
 
     @staticmethod
     async def render(
-        layout_request: LayoutRequest, session: Annotated[Session, Depends(get_session)]
+        config_request: Config, session: Annotated[Session, Depends(get_session)]
     ) -> FullResponse:
         """Render a layout."""
-        layout, figsize = layout_request["layout"], layout_request["figsize"]
+        layout, figsize = config_request["layout"], config_request["figsize"]
 
         d = session.data
         if d:
@@ -95,13 +95,13 @@ class MainApi:
         return await wrapped(callback, "rendering")
 
     @staticmethod
-    async def session(layout_request: LayoutRequest) -> FullResponse:
+    async def session(config_request: Config) -> FullResponse:
         """Create a session and render the layout."""
         session_id = str(uuid.uuid4())
         token = create_session_token(session_id)
         session = Session(token=token, data=None)
         FIGURE_SESSIONS[session_id] = session
-        return await MainApi.render(layout_request, session)
+        return await MainApi.render(config_request, session)
 
 
 # Order: delete, merge, replace, resize, restructure, rotate, split, swap

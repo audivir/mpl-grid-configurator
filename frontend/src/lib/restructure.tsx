@@ -31,9 +31,9 @@ interface UseRestructureProps {
  * Checks if the ratios have changed by more than a small epsilon
  */
 const didResize = (oldRatios: Ratios, newRatios: Ratios) => {
-  return oldRatios.some(
-    (val, idx) => Math.abs(val - newRatios[idx]) > RESIZE_EPSILON
-  );
+  const oldRatio = oldRatios[0] / oldRatios[1];
+  const newRatio = newRatios[0] / newRatios[1];
+  return Math.abs(oldRatio - newRatio) > RESIZE_EPSILON;
 };
 
 export const useRestructure = ({

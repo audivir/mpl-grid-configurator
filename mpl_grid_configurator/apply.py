@@ -91,7 +91,8 @@ def insert_node(
 ) -> tuple[SubFigure_, Callable[[str], str]]:
     """Insert a node into a figure."""
     root = FigureEditor.split(root, curr_path, value["orient"])
-    if not almost_equal(value["ratios"][0], 50) or not almost_equal(value["ratios"][1], 50):
+    ratios = value["ratios"]
+    if not almost_equal(ratios[0] / ratios[1], 1.0):
         FigureEditor.restructure(root, curr_path, value["ratios"])
     child1, child2 = value["children"]
     for ix, child in enumerate((child1, child2)):
@@ -252,10 +253,9 @@ def rebuild(
             layout = add_step(layout, ("rotate", curr_path, {}))
 
         # adjust the split ratio if necessary
-        if not almost_equal(elem["ratios"][0], target_elem["ratios"][0]) or not almost_equal(
-            elem["ratios"][1], target_elem["ratios"][1]
-        ):
-            layout = add_step(layout, ("restructure", curr_path, {"ratios": target_elem["ratios"]}))
+        ratios, target_ratios = elem["ratios"], target_elem["ratios"]
+        if not almost_equal(ratios[0] / ratios[1], target_ratios[0] / target_ratios[1]):
+            layout = add_step(layout, ("restructure", curr_path, {"ratios": target_ratios}))
 
         child1, child2 = elem["children"]
         target1, target2 = target_elem["children"]

@@ -83,6 +83,14 @@ def restructure() -> ChangeFixture:
 
 
 @pytest.fixture
+def restructure_unchanged() -> ChangeFixture:
+    pre: Layout = {"orient": "row", "children": ("f1l", "f2l"), "ratios": (70, 30)}
+    post: Layout = {"orient": "row", "children": ("f1l", "f2l"), "ratios": (70, 30)}
+
+    return pre, post, ("restructure", (), {"ratios": (70, 30)}), None
+
+
+@pytest.fixture
 def rotate() -> ChangeFixture:
     pre: Layout = {"orient": "row", "children": ("f1l", "f2l"), "ratios": (70, 30)}
     post: Layout = {"orient": "column", "children": ("f1l", "f2l"), "ratios": (70, 30)}
@@ -310,3 +318,33 @@ def insert_node() -> ChangeFixture:
         ("insert", path, {"orient": orient, "ratios": ratios, "value": value}),
         DEFAULT_LEAF,
     )
+
+
+FIXTURES = [
+    "delete_to_unsplitted_root",
+    "delete_leaf_to_splitted_root",
+    "delete_node_to_splitted_root",
+    "replace_unsplitted_root",
+    "replace_splitted_root",
+    "replace_with_node",
+    "restructure",
+    # "restructure_unchanged",
+    "rotate",
+    "split_root",
+    "split_leaf",
+    "split_node",
+    "swap_leaf_siblings",
+    "swap_leaf_with_node",
+    "swap_two_nodes",
+    "swap_leaf_non_siblings",
+    "swap_same",
+    "insert",
+    "insert_next_to_node",
+    "insert_node",
+]
+
+
+@pytest.fixture(params=FIXTURES)
+def change_fixture(request: pytest.FixtureRequest) -> ChangeFixture:
+    """All changes as single fixture."""
+    return request.getfixturevalue(request.param)

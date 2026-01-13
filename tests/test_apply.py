@@ -3,7 +3,6 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import TYPE_CHECKING
 
-import pytest
 from test_merge import merge_paths_by_id
 from utils import ChangeFixture, assert_figure_equals_layout, render_fig
 
@@ -19,33 +18,7 @@ if TYPE_CHECKING:
     from mpl_grid_configurator.types import Layout, LayoutNode, LPath
 
 
-FIXTURES = [
-    "delete_to_unsplitted_root",
-    "delete_leaf_to_splitted_root",
-    "delete_node_to_splitted_root",
-    "replace_unsplitted_root",
-    "replace_splitted_root",
-    "replace_with_node",
-    "restructure",
-    "rotate",
-    "split_root",
-    "split_leaf",
-    "split_node",
-    "swap_leaf_siblings",
-    "swap_leaf_with_node",
-    "swap_two_nodes",
-    "swap_leaf_non_siblings",
-    "swap_same",
-    "insert",
-    "insert_next_to_node",
-    "insert_node",
-]
-
-
-@pytest.mark.parametrize("fixture", FIXTURES)
-def test_apply_to_layout(fixture: str, request: pytest.FixtureRequest) -> None:
-    change_fixture: ChangeFixture = request.getfixturevalue(fixture)
-
+def test_apply_to_layout(change_fixture: ChangeFixture) -> None:
     pre, post, change, expected_removed = change_fixture
     pre_copy = deepcopy(pre)
 
@@ -65,12 +38,10 @@ def test_apply_to_layout(fixture: str, request: pytest.FixtureRequest) -> None:
     assert forward_changes == [change]
 
 
-@pytest.mark.parametrize("fixture", FIXTURES)
 def test_apply_to_figure(
-    fixture: str, request: pytest.FixtureRequest, tmp_path: Path, define_draw_funcs: None
+    change_fixture: ChangeFixture, tmp_path: Path, define_draw_funcs: None
 ) -> None:
     del define_draw_funcs  # just for side effect
-    change_fixture: ChangeFixture = request.getfixturevalue(fixture)
 
     pre, post, change, _ = change_fixture
     root = render_fig(pre)
@@ -117,23 +88,13 @@ def assert_rebuild(layout: Layout, lca_path: LPath, target_layout: Layout, tmp_p
     assert_figure_equals_layout(backward_fig, layout, tmp_path)
 
 
-@pytest.mark.parametrize("fixture", FIXTURES)
 def test_rebuild_single_step(
-    fixture: str, request: pytest.FixtureRequest, tmp_path: Path, define_draw_funcs: None
+    change_fixture: ChangeFixture, tmp_path: Path, define_draw_funcs: None
 ) -> None:
     del define_draw_funcs  # just for side effect
-    change_fixture: ChangeFixture = request.getfixturevalue(fixture)
-
     pre, post, _, _ = change_fixture
 
-    try:
-        assert_rebuild(pre, (), post, tmp_path)
-    except ValueError as e:
-        if fixture == "delete_node_to_splitted_root" and e.args == (
-            "Cannot insert nodes in figures",
-        ):
-            pytest.xfail("insert nodes in figure currently not supported")
-        raise
+    assert_rebuild(pre, (), post, tmp_path)
 
 
 def test_rebuild_merge_simple(

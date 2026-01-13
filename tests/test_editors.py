@@ -220,6 +220,24 @@ def test_restructure(
         assert root == post
 
 
+def test_restructure_unchanged(
+    mode: Mode, restructure_unchanged: ChangeFixture, tmp_path: Path, define_draw_funcs: None
+) -> None:
+    del define_draw_funcs  # for side effect
+
+    pre, post, (_, path, kwargs), _ = restructure_unchanged
+    ratios = kwargs["ratios"]
+
+    def edit_callback(root: SubFigure_) -> None:
+        FigureEditor.restructure(root, path, ratios)
+
+    if mode == "fig":
+        assert_edit(edit_callback, pre, post, tmp_path)
+    else:
+        with pytest.raises(ValueError, match="No or too small ratios change"):
+            LayoutEditor.restructure(pre, path, ratios)
+
+
 def test_restructure_fail(mode: Mode, tmp_path: Path, define_draw_funcs: None) -> None:
     del define_draw_funcs  # for side effect
 

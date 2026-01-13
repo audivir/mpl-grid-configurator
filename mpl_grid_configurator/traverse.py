@@ -163,10 +163,10 @@ def are_nodes_equal(node1: Layout, node2: Layout) -> bool:
     if isinstance(node1, str) or isinstance(node2, str):
         return node1 == node2
 
+    ratios1, ratios2 = node1["ratios"], node2["ratios"]
     return (
         node1["orient"] == node2["orient"]
-        and almost_equal(node1["ratios"][0], node2["ratios"][0])
-        and almost_equal(node1["ratios"][1], node2["ratios"][1])
+        and almost_equal(ratios1[0] / ratios1[1], ratios2[0] / ratios2[1])
         and are_nodes_equal(node1["children"][0], node2["children"][0])
         and are_nodes_equal(node1["children"][1], node2["children"][1])
     )

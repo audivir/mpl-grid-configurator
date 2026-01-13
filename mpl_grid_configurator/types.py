@@ -69,10 +69,25 @@ class LayoutNode(TypedDict):
 
 Layout: TypeAlias = LayoutNode | str
 LayoutT = TypeVar("LayoutT", LayoutNode, str, Layout)
+
+
+class Config(TypedDict):
+    """Configuration with layout and figsize."""
+
+    layout: Layout
+    figsize: FigureSize
+
+
 FigureTree: TypeAlias = "tuple[str, int, int, tuple[FigureTree, ...]]"
 
 ChangeKey: TypeAlias = Literal[
-    "delete", "insert", "replace", "restructure", "rotate", "split", "swap"
+    "delete",
+    "insert",
+    "replace",
+    "restructure",
+    "rotate",
+    "split",
+    "swap",
 ]
 Change: TypeAlias = tuple[ChangeKey, LPath, dict[str, Any]]
 

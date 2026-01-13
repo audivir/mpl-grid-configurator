@@ -8,13 +8,6 @@ from mpl_grid_configurator.types import Change, FigureSize, Layout, LPath, Orien
 ### Request types ###
 
 
-class LayoutRequest(TypedDict):
-    """Layout and figure size."""
-
-    figsize: FigureSize
-    layout: Layout
-
-
 class PathRequest(TypedDict):
     """Path."""
 

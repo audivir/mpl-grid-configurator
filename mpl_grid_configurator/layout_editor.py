@@ -130,7 +130,7 @@ class LayoutEditor:
 
         node = get_node(layout, path)
         prev = node["ratios"]
-        if almost_equal(prev[0], ratios[0]) and almost_equal(prev[1], ratios[1]):
+        if almost_equal(prev[0] / prev[1], ratios[0] / ratios[1]):
             raise ValueError("No or too small ratios change")
 
         node["ratios"] = ratios
