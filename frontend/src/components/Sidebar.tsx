@@ -50,6 +50,7 @@ const parseConfig = (raw: string) => {
   try {
     json = parse(raw, errors, JSON_PARSE_OPTIONS);
   } catch (err) {
+    console.error(err);
     toast.error("Invalid JSON or JSONC");
     return;
   }
