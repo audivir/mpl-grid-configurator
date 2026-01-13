@@ -1,0 +1,2 @@
+# Ignore all jsonc files in this specific directory
+tests/layouts/*.jsonc

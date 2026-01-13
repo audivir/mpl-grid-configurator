@@ -36,7 +36,7 @@ def find_paths(layout: Layout, id1: str, id2: str) -> tuple[LPath, LPath]:
 def test_merge_with_nodes(define_draw_funcs: None) -> None:
     del define_draw_funcs  # just for the side effect
 
-    layout, figsize = load_layout("merge_with_nodes.json5")
+    layout, figsize = load_layout("merge_with_nodes.jsonc")
 
     path1, path2 = find_paths(layout, "f4l", "f7l")
 
