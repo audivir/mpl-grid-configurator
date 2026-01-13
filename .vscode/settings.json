@@ -1,0 +1,10 @@
+{
+  "json.schemas": [
+    {
+      "fileMatch": ["tests/layouts/*.jsonc"],
+      "schema": {
+        "allowTrailingCommas": true
+      }
+    }
+  ]
+}
