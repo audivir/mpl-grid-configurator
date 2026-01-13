@@ -1,6 +1,6 @@
 import { SetStateAction, useEffect, useRef, useState } from "react";
 import { cn } from "react-lib-tools";
-import json5 from "json5";
+import { parse, ParseError } from "jsonc-parser";
 import {
   Settings,
   RotateCcw,
@@ -19,7 +19,12 @@ import {
 import { toast } from "sonner";
 import ControlButton from "./ControlButton";
 import { LayoutActions } from "../lib/actions";
-import { DEFAULT_FIGSIZE, DEFAULT_LAYOUT, STORAGE_KEYS } from "../lib/const";
+import {
+  DEFAULT_FIGSIZE,
+  DEFAULT_LAYOUT,
+  JSON_PARSE_OPTIONS,
+  STORAGE_KEYS,
+} from "../lib/const";
 import { copyContentToClipboard, downloadContent } from "../lib/content";
 import { History } from "../lib/history";
 import { ConfigSchema, FigureSize, Layout } from "../lib/layout";
@@ -41,16 +46,16 @@ interface SidebarProps {
 
 const parseConfig = (raw: string) => {
   let json: any;
+  const errors: ParseError[] = [];
   try {
-    json = JSON.parse(raw);
+    json = parse(raw, errors, JSON_PARSE_OPTIONS);
   } catch (err) {
-    try {
-      json = json5.parse(raw);
-    } catch (err) {
-      toast.error("Invalid JSON");
-      return;
-    }
-    toast.warning("Input only parseable as JSON5, not JSON");
+    toast.error("Invalid JSON or JSONC");
+    return;
+  }
+  if (errors) {
+    toast.error("Invalid JSON or JSONC");
+    return;
   }
   const config = ConfigSchema.safeParse(json);
   if (!config.success) {
@@ -63,7 +68,7 @@ const parseConfig = (raw: string) => {
 const handleImport = (
   handleReset: (l: Layout, fs: FigureSize, msg?: string) => Promise<void>
 ) => {
-  const raw = window.prompt("Paste Config JSON:");
+  const raw = window.prompt("Paste Config JSON or JSONC:");
   if (!raw) return;
 
   const config = parseConfig(raw);

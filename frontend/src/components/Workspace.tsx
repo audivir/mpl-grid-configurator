@@ -3,7 +3,6 @@ import PreviewOverlay from "./PreviewOverlay";
 import { LayoutActions } from "../lib/actions";
 import { DEFAULT_DPI } from "../lib/const";
 import { Layout, FigureSize } from "../lib/layout";
-import { SetStateAction } from "react";
 
 interface WorkspaceProps {
   layout: Layout;

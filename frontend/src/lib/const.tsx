@@ -1,3 +1,4 @@
+import { ParseOptions } from "jsonc-parser";
 import { LayoutNode, FigureSize, Ratios, Orient } from "./layout";
 
 export const API_BASE = "http://localhost:8765";
@@ -19,3 +20,8 @@ export const STORAGE_KEYS = {
   SIDEBAR_PINNED: "plot-sidebar-pinned-v1",
   SESSION_TOKEN: "plot-session-token-v1",
 } as const;
+export const JSON_PARSE_OPTIONS = {
+  disallowComments: false,
+  allowTrailingComma: true,
+  allowEmptyContent: true,
+} as ParseOptions;
