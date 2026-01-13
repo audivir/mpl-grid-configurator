@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from typing import TypeVar
 
+import colorlog
 import dotenv
 from fastapi import FastAPI
 
@@ -16,6 +17,12 @@ R = TypeVar("R")
 dotenv.load_dotenv()
 logger = logging.getLogger(__name__)
 
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+handler = colorlog.StreamHandler()
+handler.setFormatter(colorlog.ColoredFormatter("%(log_color)s%(message)s"))
+root_logger.addHandler(handler)
+
 PARENT = Path(__file__).parent
 FRONTEND_DIR = PARENT / ".." / "frontend"
 
@@ -25,16 +32,9 @@ def start_app(port: int = 8000) -> None:
     import threading
     import time
 
-    import colorlog
     import uvicorn
     from fastapi.middleware.cors import CORSMiddleware
     from servestatic import ServeStaticASGI  # type: ignore[import-untyped]
-
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
-    handler = colorlog.StreamHandler()
-    handler.setFormatter(colorlog.ColoredFormatter("%(log_color)s%(message)s"))
-    root_logger.addHandler(handler)
 
     backend_app = FastAPI()
 

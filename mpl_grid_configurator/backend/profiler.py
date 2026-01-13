@@ -10,9 +10,10 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+
 # Configuration via Environment Variable
 PROFILING_ENABLED = bool(os.getenv("MPL_PROFILE"))
-perf_logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class SessionProfiler:
@@ -36,17 +37,17 @@ class SessionProfiler:
 
     def finalize(self) -> None:
         """Finalize profiling."""
-        if not PROFILING_ENABLED:
-            return
         total = time.perf_counter() - self.start_total
+        if not PROFILING_ENABLED:
+            logger.info("[%s] Total: %.4fs", self.operation, total)
+            return
         # Format: OpName | Total | Segment1 | Segment2 ...
         breakdown = " | ".join([f"{k}: {v:.4f}s" for k, v in self.timings.items()])
-        perf_logger.info("[%s] Total: %.4fs | %s", self.operation, total, breakdown)
+        logger.info("[%s] Total: %.4fs | %s", self.operation, total, breakdown)
 
 
 # Set up a dedicated file handler for performance if enabled
 if PROFILING_ENABLED:
     handler = logging.FileHandler("api_performance.log")
-    handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
-    perf_logger.addHandler(handler)
-    perf_logger.setLevel(logging.INFO)
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
