@@ -53,7 +53,8 @@ const parseConfig = (raw: string) => {
     toast.error("Invalid JSON or JSONC");
     return;
   }
-  if (errors) {
+  if (errors.length > 0) {
+    console.error(errors);
     toast.error("Invalid JSON or JSONC");
     return;
   }
