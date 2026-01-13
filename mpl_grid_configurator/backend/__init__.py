@@ -25,9 +25,16 @@ def start_app(port: int = 8000) -> None:
     import threading
     import time
 
+    import colorlog
     import uvicorn
     from fastapi.middleware.cors import CORSMiddleware
     from servestatic import ServeStaticASGI  # type: ignore[import-untyped]
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    handler = colorlog.StreamHandler()
+    handler.setFormatter(colorlog.ColoredFormatter("%(log_color)s%(message)s"))
+    root_logger.addHandler(handler)
 
     backend_app = FastAPI()
 

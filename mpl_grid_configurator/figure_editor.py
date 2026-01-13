@@ -100,6 +100,7 @@ class FigureEditor:
             # creating fresh SubFigure in the same relative position
             # using existing subplotspec ensures it fits the same grid slot
             new_sf: SubFigure_ = SubFigure(parent, sf._subplotspec)  # type: ignore[assignment]
+            new_sf._name = value  # type: ignore[attr-defined]
             new_sf.patch.set_visible(False)
             svg_callback = run_draw_func(value, drawer, new_sf)
         else:
@@ -109,11 +110,15 @@ class FigureEditor:
 
             # passing a cached SubFigure
             new_sf = drawer
+            new_sf._name = value  # type: ignore[attr-defined]
             new_sf._parent = parent
             new_sf._subplotspec = sf._subplotspec
 
         # swap the references in the parent
         parent.subfigs[ix] = new_sf
+
+        if hasattr(sf, "_name"):
+            del sf._name  # type: ignore[attr-defined]
 
         if path:
             return root, sf, svg_callback

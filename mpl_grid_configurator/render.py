@@ -86,6 +86,8 @@ def run_draw_func(
     """Run a draw function."""
     from mpl_grid_configurator.unnested_skunk import connect, insert
 
+    container._name = func_name  # type: ignore[attr-defined] # noqa: SLF001
+
     if is_tuple_draw_func(func):
         svg, ax = func(container)
     elif is_str_draw_func(func):
