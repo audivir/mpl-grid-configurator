@@ -282,10 +282,12 @@ def merge_paths(
         ValueError: If no merged bounding box can be built
     """
     # sanity checks
+    if path1 == path2:
+        logger.debug("Paths are the same, nothing to do")
+        return root, path1[:-1]
     if path1[:-1] == path2[:-1]:
-        if path1[-1] == path2[-1]:
-            raise MergeError("Paths are the same")
-        raise MergeError("Paths are already siblings")
+        logger.debug("Paths are already siblings, nothing to do")
+        return root, path1[:-1]
 
     root = deepcopy(root)
     root_with_id = adjust_node_id(root, mode="add")

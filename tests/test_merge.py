@@ -232,13 +232,15 @@ def test_rectify_bbox_rectify_only_touching_fail(key: str, to_rectify: BoundingB
     assert rectified == expected
 
 
-def test_merge_paths_fail(simple_root: LayoutNode) -> None:
+def test_merge_paths_skips(simple_root: LayoutNode, caplog: pytest.LogCaptureFixture) -> None:
     """Test merging to paths with the same previous orientation."""
-    with pytest.raises(ValueError, match="Paths are the same"):
+    with caplog.at_level(logging.DEBUG):
         merge_paths_by_id(simple_root, "f1l", "f1l")
-
-    with pytest.raises(ValueError, match="Paths are already siblings"):
+    assert "Paths are the same, nothing to do" in caplog.text
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG):
         merge_paths_by_id(simple_root, "f4r", "f5r")
+    assert "Paths are already siblings, nothing to do" in caplog.text
 
 
 # TODO(tihoph): define the exact expected layout
@@ -291,14 +293,6 @@ def test_merge_paths_non_touching(simple_root: LayoutNode) -> None:
     """Test merging paths if they dont touch."""
     with pytest.raises(ValueError, match="Bounding boxes must touch and overlap at least 90 %"):
         merge_paths_by_id(simple_root, "f1l", "f5r")
-
-
-def test_merge_paths_errors(simple_root: LayoutNode) -> None:
-    """Test merging paths if they are siblings."""
-    with pytest.raises(ValueError, match="Paths are already siblings"):
-        merge_paths_by_id(simple_root, "f4r", "f5r")
-    with pytest.raises(ValueError, match="Paths are the same"):
-        merge_paths_by_id(simple_root, "f4r", "f4r")
 
 
 def test_merge_paths_partial_touch_complex() -> None:

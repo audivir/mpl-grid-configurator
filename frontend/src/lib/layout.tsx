@@ -33,6 +33,8 @@ export const ConfigSchema = z.object({
   figsize: FigureSizeSchema,
 });
 
+export type Config = z.infer<typeof ConfigSchema>;
+
 /**
  * Get the leaf or node at the given path.
  */

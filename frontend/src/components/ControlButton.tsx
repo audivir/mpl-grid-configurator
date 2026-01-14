@@ -7,6 +7,9 @@ interface ControlButtonProps
   variant?: "default" | "danger" | "success";
 }
 
+/**
+ * A button with an icon and a label.
+ */
 const ControlButton = ({
   icon: Icon,
   label,

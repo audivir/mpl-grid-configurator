@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "react-lib-tools";
 import { Group, Panel, Separator } from "react-resizable-panels";
+import { debounce } from "lodash";
 import {
   Columns,
   Rows,
@@ -11,6 +12,8 @@ import {
 } from "lucide-react";
 import { LayoutActions } from "../lib/actions";
 import { FigureSize, Layout, LPath } from "../lib/layout";
+
+const DEBOUNCE_TIME = 100;
 
 interface GridOverlayProps {
   layout: Layout;
@@ -23,12 +26,20 @@ interface GridOverlayProps {
 interface RecursiveGridProps {
   node: Layout;
   path: LPath;
+  setIsButtonHovered: (v: boolean) => void;
+
 }
 
 interface DragButtonProps {
   icon: React.ElementType;
   setter: (pathId: string | null) => void;
 }
+
+/**
+ * A button that can be dragged showing the full grandparent.
+ * @param icon The icon to display on the button.
+ * @param setter The function to call with the grandparent's id while dragging, and null when dragging ends.
+ */
 const DragButton: React.FC<DragButtonProps> = ({
   icon: Icon,
   setter,
@@ -38,7 +49,8 @@ const DragButton: React.FC<DragButtonProps> = ({
       draggable
       className="p-1 text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing"
       onDragStart={(e) => {
-        const parent = (e.currentTarget as HTMLElement).parentElement!;
+        const parent = (e.currentTarget as HTMLElement).parentElement!
+          .parentElement!;
         const pathId = parent.id;
         e.dataTransfer.setDragImage(parent, 20, 20);
         setter(pathId);
@@ -59,9 +71,31 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
   const [swapPathId, setSwapPathId] = useState<string | null>(null);
   const [mergePathId, setMergePathId] = useState<string | null>(null);
 
-  const RecursiveGrid: React.FC<RecursiveGridProps> = ({ node, path }) => {
+  const RecursiveGrid: React.FC<RecursiveGridProps> = ({ node, path, setIsButtonHovered }) => {
     const [isOver, setIsOver] = useState(false);
     const pathId = [0, ...path].join("-");
+
+    const [isChildButtonHovered, setIsChildButtonHovered] = useState(false);
+    const [isSeperatorActive, setIsSeperatorActive] = useState(false);
+    const seperatorRef = useRef<HTMLDivElement>(null);
+
+    const debouncedSetIsButtonHovered = debounce(setIsButtonHovered, DEBOUNCE_TIME);
+
+    useEffect(() => {
+      const el = seperatorRef.current;
+      if (!el) return;
+      const observer = new MutationObserver(debounce(() => {
+          const state = el.getAttribute("data-separator");
+          setIsSeperatorActive(state !== "inactive");
+      }, DEBOUNCE_TIME));
+      observer.observe(el, {
+        attributes: true,
+        attributeFilter: ["data-separator"],
+      });
+      return () => {
+        observer.disconnect();
+      };
+    }, []);
 
     if (typeof node === "string") {
       return (
@@ -98,30 +132,12 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
             </button>
 
             <div
-              className="flex items-center gap-1 p-1 bg-white/95 border border-slate-200 rounded shadow-sm pointer-events-auto transform transition-transform group-hover:scale-105"
+              className="flex flex-wrap items-center justify-center gap-1 p-1 bg-white/95 border border-slate-200 rounded shadow-sm pointer-events-auto transform transition-transform group-hover:scale-105"
               id={pathId}
               style={{ transform: `scale(${1 / zoom})` }}
             >
-              {path.length > 0 && (
-                <DragButton
-                  icon={SwitchCamera}
-                  setter={(pathId) => {
-                    setMergePathId(null); // assure no merge
-                    setSwapPathId(pathId);
-                  }}
-                />
-              )}
-              {path.length > 0 && (
-                <DragButton
-                  icon={Merge}
-                  setter={(pathId) => {
-                    setSwapPathId(null); // assure no swap
-                    setMergePathId(pathId);
-                  }}
-                />
-              )}
               <select
-                className="text-[11px] font-bold text-slate-700 bg-transparent border-none focus:ring-0 cursor-pointer outline-none px-1"
+                className="text-xs font-bold text-slate-700 bg-transparent border-none focus:ring-0 cursor-pointer outline-none px-1"
                 value={node}
                 onChange={(e) => actions.replace(path, e.target.value)}
               >
@@ -132,21 +148,38 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
                 ))}
               </select>
               {path.length > 0 && (
-                <button
-                  className="p-1 text-blue-400 hover:text-blue-600"
-                  onClick={() => actions.rotate(path.slice(0, -1))}
-                >
-                  <RotateCcw size={14} />
-                </button>
-              )}
-
-              {path.length > 0 && (
-                <button
-                  className="p-1 text-red-400 hover:text-red-600"
-                  onClick={() => actions.delete(path)}
-                >
-                  <Trash2 size={14} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <DragButton
+                    icon={SwitchCamera}
+                    setter={(pathId) => {
+                      setMergePathId(null); // assure no merge
+                      setSwapPathId(pathId);
+                    }}
+                  />
+                  <DragButton
+                    icon={Merge}
+                    setter={(pathId) => {
+                      setSwapPathId(null); // assure no swap
+                      setMergePathId(pathId);
+                    }}
+                  />
+                  <button
+                    className="p-1 text-blue-400 hover:text-blue-600"
+                    onClick={() => actions.rotate(path.slice(0, -1))}
+                    onMouseEnter={() => {debouncedSetIsButtonHovered(true)}}
+                    onMouseLeave={() => {debouncedSetIsButtonHovered(false)}}
+                  >
+                    <RotateCcw size={14} />
+                  </button>
+                  <button
+                    className="p-1 text-red-400 hover:text-red-600"
+                    onClick={() => actions.delete(path)}
+                    onMouseEnter={() => {debouncedSetIsButtonHovered(true)}}
+                    onMouseLeave={() => {debouncedSetIsButtonHovered(false)}}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               )}
             </div>
 
@@ -165,26 +198,39 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
     return (
       <Group
         orientation={node.orient === "row" ? "horizontal" : "vertical"}
-        className="w-full h-full"
+        className={cn(
+          "w-full h-full",
+          (isSeperatorActive || isChildButtonHovered) && "bg-blue-500/20"
+        )}
         onLayoutChange={actions.restructure}
       >
         <Panel defaultSize={node.ratios[0]} id={pathId + "-0"}>
-          <RecursiveGrid node={node.children[0]} path={[...path, 0]} />
+          <RecursiveGrid
+            node={node.children[0]}
+            path={[...path, 0]}
+            setIsButtonHovered={setIsChildButtonHovered}
+          />
         </Panel>
         <Separator
           className={cn(
             "bg-slate-200 hover:bg-blue-400 transition-colors",
+            (isSeperatorActive || isChildButtonHovered) && "bg-blue-400",
             node.orient === "row" ? "w-1" : "h-1"
           )}
+          elementRef={seperatorRef}
         />
         <Panel defaultSize={node.ratios[1]} id={pathId + "-1"}>
-          <RecursiveGrid node={node.children[1]} path={[...path, 1]} />
+          <RecursiveGrid
+            node={node.children[1]}
+            path={[...path, 1]}
+            setIsButtonHovered={setIsChildButtonHovered}
+          />
         </Panel>
       </Group>
     );
   };
 
-  return <RecursiveGrid node={layout} path={[]} />;
+  return <RecursiveGrid node={layout} path={[]} setIsButtonHovered={() => {}}/>;
 };
 
 export default GridOverlay;

@@ -6,6 +6,10 @@ interface PreviewOverlayProps {
   figsize: FigureSize;
 }
 
+/**
+ * A slightly-blue overlay that shows the figsize the figure will have
+ * after releasing the mouse.
+ */
 const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
   figsize: [inchWidth, inchHeight],
 }) => {

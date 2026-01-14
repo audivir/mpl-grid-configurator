@@ -55,7 +55,7 @@ const Workspace: React.FC<WorkspaceProps> = ({
           </div>
         )}
 
-        {/* Resizing preview */}
+        {/* Overlay for previewing figsize */}
         {showOverlay &&
           figsizePreview !== figsize && ( // During dragging
             <PreviewOverlay figsize={figsizePreview} />

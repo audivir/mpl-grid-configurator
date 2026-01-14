@@ -1,3 +1,6 @@
+/**
+ * A full-screen animated spinner with information that Matplotlib is rendering.
+ */
 const InitialLoader = () => (
   <div className="w-screen h-screen bg-[#0f172a] flex flex-col items-center justify-center gap-6">
     {/* Animated Blueprint/Grid Icon */}

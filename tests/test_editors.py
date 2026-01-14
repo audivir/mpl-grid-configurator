@@ -169,7 +169,7 @@ def test_replace_splitted_root(
         root, removed_sf, _ = FigureEditor.replace(root, path, value, get_drawer({}, value))
         return root, removed_sf
 
-    with caplog.at_level(logging.WARNING):
+    with caplog.at_level(logging.DEBUG):
         _, pre_removed = assert_edit(edit_callback, pre, post, tmp_path)
     assert "Draw func needs to be run" in caplog.text
     caplog.clear()  # important
@@ -178,7 +178,7 @@ def test_replace_splitted_root(
         root, *_ = FigureEditor.replace(root, path, expected_removed, pre_removed)
         return root
 
-    with caplog.at_level(logging.WARNING):
+    with caplog.at_level(logging.DEBUG):
         assert_edit(reedit_callback, post, pre, tmp_path)
     assert caplog.text == ""
 
@@ -431,14 +431,14 @@ def test_swap_same(
     def edit_callback(root: SubFigure_) -> None:
         FigureEditor.swap(root, path1, path2)
 
-    with caplog.at_level(logging.WARNING):
+    with caplog.at_level(logging.DEBUG):
         if mode == "fig":
             assert_edit(edit_callback, pre, post, tmp_path)
             assert "Subfigures are the same, nothing to do" in caplog.text
         else:
             root, _ = LayoutEditor.swap(pre, path1, path2)
             assert root == post
-            assert "Swapping a node with itself, nothing to do" in caplog.text
+            assert "Paths are the same, nothing to do" in caplog.text
 
 
 @pytest.mark.parametrize("fixture", ["insert", "insert_next_to_node"])

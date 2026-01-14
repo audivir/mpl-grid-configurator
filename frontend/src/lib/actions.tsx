@@ -63,7 +63,14 @@ export const useLayoutActions = ({
     },
 
     merge: async (pAId: string, pBId: string) => {
-      if (pAId === pBId) return;
+      if (pAId === pBId) {
+        toast.info("Paths are the same, nothing to do");
+        return;
+      }
+      if (pAId.slice(0, -2) === pBId.slice(0, -2)) {
+        toast.info("Paths are already siblings, nothing to do");
+        return;
+      }
       const pathA = pAId.split("-").slice(1).map(Number) as LPath;
       const pathB = pBId.split("-").slice(1).map(Number) as LPath;
       const res = await history.executeAction("MERGE", (l, f) =>
@@ -117,9 +124,12 @@ export const useLayoutActions = ({
     },
 
     swap: async (pA: string, pB: string) => {
+      if (pA === pB) {
+        toast.info("Paths are the same, nothing to do");
+        return;
+      }
       const pathA = pA.split("-").slice(1).map(Number);
       const pathB = pB.split("-").slice(1).map(Number);
-      if (pathA === pathB) return;
       const res = await history.executeAction("SWAP", (l, f) =>
         apiCalls.swap(pathA, pathB, sessionToken)
       );

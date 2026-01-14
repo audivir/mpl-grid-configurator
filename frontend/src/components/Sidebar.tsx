@@ -27,7 +27,7 @@ import {
 } from "../lib/const";
 import { copyContentToClipboard, downloadContent } from "../lib/content";
 import { History } from "../lib/history";
-import { ConfigSchema, FigureSize, Layout } from "../lib/layout";
+import { ConfigSchema, FigureSize, Layout, Config } from "../lib/layout";
 
 interface SidebarProps {
   layout: Layout;
@@ -44,7 +44,11 @@ interface SidebarProps {
   actions: LayoutActions;
 }
 
-const parseConfig = (raw: string) => {
+/**
+ * Parses as JSONC (allowing // and /* *\/ comments) string into a layout and figsize.
+ * @returns Config if valid JSONC, null if invalid JSONC or unexpected schema
+ */
+const parseConfig = (raw: string): Config | null => {
   let json: any;
   const errors: ParseError[] = [];
   try {
@@ -52,21 +56,25 @@ const parseConfig = (raw: string) => {
   } catch (err) {
     console.error(err);
     toast.error("Invalid JSON or JSONC");
-    return;
+    return null;
   }
   if (errors.length > 0) {
     console.error(errors);
     toast.error("Invalid JSON or JSONC");
-    return;
+    return null;
   }
   const config = ConfigSchema.safeParse(json);
   if (!config.success) {
     toast.error("JSON does not match expected schema");
-    return;
+    return null;
   }
   return config.data;
 };
 
+/**
+ * Handles importing a configuration by opening a prompt to paste a JSON or JSONC string, parsing it, and resetting the layout and figsize.
+ * @param handleReset The function to call to reset the layout and figsize (and an optional toast message on success).
+ */
 const handleImport = (
   handleReset: (l: Layout, fs: FigureSize, msg?: string) => Promise<void>
 ) => {
